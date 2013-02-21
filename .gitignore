@@ -1,0 +1,12 @@
+# python
+*.pyc
+
+# eclipse
+.project
+.pydevproject
+
+# SVN
+*.svn
+
+#linux
+.directory
