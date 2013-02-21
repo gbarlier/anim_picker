@@ -5,9 +5,12 @@ class EditMode():
         self.main_status = status
         self.status = status
     
+    def __call__(self):
+        return self.get()
+    
     def set_init(self, status=False):
         self.__init__(status=status)
-        
+    
     def get_main(self):
         '''Return main status for special override
         '''
