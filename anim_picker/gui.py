@@ -2132,7 +2132,6 @@ class PointHandle(DefaultPolygon):
         painter.drawLine(-cross_size, 0, cross_size, 0)
         painter.drawLine(0, cross_size, 0, -cross_size)
         
-    
     def itemChange(self, change, value):
         '''itemChange update behavior
         '''
@@ -2145,6 +2144,12 @@ class PointHandle(DefaultPolygon):
         
         # Run default action
         return DefaultPolygon.itemChange(self, change, value)
+    
+    def mirror_x_position(self):
+        '''will mirror local x position value
+        '''
+        self.setX(-1 * self.x())
+    
     
 class Polygon(DefaultPolygon):
     '''
@@ -2275,7 +2280,7 @@ class PickerItem(DefaultPolygon):
         # Add handles and polygon support
         self.handles = list() 
         self.polygon = Polygon(parent=self)
-        self.set_points(self.get_default_points())
+        self.set_handles(self.get_default_handles())
         
     def shape(self):
         path = QtGui.QPainterPath()
@@ -2317,13 +2322,13 @@ class PickerItem(DefaultPolygon):
 #        # Paint Borders
 #        painter.drawPath(path)
         
-    def get_default_points(self):
+    def get_default_handles(self):
         '''
-        Generate default points coordinate for polygon
+        Generate default point handles coordinate for polygon
         (on circle)
         '''
         unit_scale = 20
-        points = list()
+        handles = list()
 
         # Define angle step
         angle_step = pi * 2 / self.point_count
@@ -2333,14 +2338,14 @@ class PickerItem(DefaultPolygon):
             x = sin(i * angle_step + pi/self.point_count) * unit_scale
             y = cos(i * angle_step + pi/self.point_count) * unit_scale
             handle = PointHandle(x=x, y=y, parent=self)
-            points.append(handle)
+            handles.append(handle)
             
         # Circle case
-        if len(points) == 2:
-            points.reverse()
-            points[0] = points[0] + (points[1] - points[0])/2
+        if len(handles) == 2:
+            handles.reverse()
+            handles[0] = handles[0] + (handles[1] - handles[0])/2
             
-        return points
+        return handles
     
     def edit_point_count(self, value=4):
         '''
@@ -2352,38 +2357,35 @@ class PickerItem(DefaultPolygon):
         self.point_count = value
         
         # Reset points
-        points = self.get_default_points()
+        points = self.get_default_handles()
         self.set_points(points)
         
 #        # Update display
 #        self.update()
         
-    def set_points(self, points):
+    def set_handles(self, handles=list()):
         '''Set polygon handles points
         '''
         # Remove existing handles
         for handle in self.handles:
             self.scene().removeItem(handle)
-        self.handles = list()
-        
+            
+        # Parse input type
+        new_handles = list()
+        for handle in handles:
+            if isinstance(handle, (list, tuple)):
+                handle = PointHandle(x=handle[0], y=handle[1], parent=self)
+            elif hasattr(handle, 'x') and hasattr(handle, 'y'):
+                handle = PointHandle(x=handle.x(), y=handle.y(), parent=self)
+            new_handles.append(handle)
+            
         # Update handles list
-        self.handles = points
-        self.polygon.points = points
+        self.handles = new_handles
+        self.polygon.points = new_handles
         
         # Set current visibility status
         for handle in self.handles:
             handle.setVisible(self.get_edit_status())
-            
-    def edit_options(self):
-        '''Open Edit options window
-        '''
-        # Init edit window 
-        if not self.edit_window:
-            self.edit_window = ItemOptionsWindow(parent=self.parentWidget(), picker_item=self)
-        
-        # Show window
-        self.edit_window.show()
-        self.edit_window.raise_()
     
     def mouseDoubleClickEvent(self, event):
         '''Event called when mouse is double clicked
@@ -2415,39 +2417,39 @@ class PickerItem(DefaultPolygon):
         menu = QtGui.QMenu(self.parent())
         
         # Build edit context menu
-#        options_action = QtGui.QAction("Options", None)
-#        options_action.triggered.connect(self.active_control.mouseDoubleClickEvent)
-#        menu.addAction(options_action)
+        options_action = QtGui.QAction("Options", None)
+        options_action.triggered.connect(self.edit_options)
+        menu.addAction(options_action)
         
         handles_action = QtGui.QAction("Toggle handles", None)
         handles_action.triggered.connect(self.toggle_edit_status)
         menu.addAction(handles_action)
         
-#        menu.addSeparator()
-#        
-#        move_action = QtGui.QAction("Move to center", None)
-#        move_action.triggered.connect(self.active_control.move_to_center)
-#        menu.addAction(move_action)
-#        
-#        shp_mirror_action = QtGui.QAction("Mirror shape", None)
-#        shp_mirror_action.triggered.connect(self.active_control.mirror_shape)
-#        menu.addAction(shp_mirror_action)
-#        
-#        color_mirror_action = QtGui.QAction("Mirror color", None)
-#        color_mirror_action.triggered.connect(self.active_control.mirror_color)
-#        menu.addAction(color_mirror_action)
-#        
+        menu.addSeparator()
+        
+        move_action = QtGui.QAction("Move to center", None)
+        move_action.triggered.connect(self.move_to_center)
+        menu.addAction(move_action)
+        
+        shp_mirror_action = QtGui.QAction("Mirror shape", None)
+        shp_mirror_action.triggered.connect(self.mirror_shape)
+        menu.addAction(shp_mirror_action)
+        
+        color_mirror_action = QtGui.QAction("Mirror color", None)
+        color_mirror_action.triggered.connect(self.mirror_color)
+        menu.addAction(color_mirror_action)
+        
 #        menu.addSeparator()
 #        
 #        move_back_action = QtGui.QAction("Move to back", None)
 #        move_back_action.triggered.connect(self.move_to_back_event)
 #        menu.addAction(move_back_action)
 #        
-#        menu.addSeparator()
-#        
-#        remove_action = QtGui.QAction("Remove", None)
-#        remove_action.triggered.connect(self.remove_ctrl_event)
-#        menu.addAction(remove_action)
+        menu.addSeparator()
+        
+        remove_action = QtGui.QAction("Remove", None)
+        remove_action.triggered.connect(self.remove)
+        menu.addAction(remove_action)
 #        
 #        duplicate_action = QtGui.QAction("Duplicate", None)
 #        duplicate_action.triggered.connect(self.active_control.duplicate)
@@ -2463,6 +2465,17 @@ class PickerItem(DefaultPolygon):
         view_pos = self.parent().mapFromScene(scene_pos)
         screen_pos = self.parent().mapToGlobal(view_pos)
         menu.exec_(screen_pos)
+    
+    def edit_options(self):
+        '''Open Edit options window
+        '''
+        # Init edit window 
+        if not self.edit_window:
+            self.edit_window = ItemOptionsWindow(parent=self.parentWidget(), picker_item=self)
+        
+        # Show window
+        self.edit_window.show()
+        self.edit_window.raise_()
         
     def set_edit_status(self, status):
         '''Set picker item edit status (handle visibility etc.)
@@ -2492,6 +2505,75 @@ class PickerItem(DefaultPolygon):
         '''
         self.polygon.color = color
         self.update()
+        
+    def move_to_center(self):
+        '''Move picker item to pos 0,0
+        '''
+        self.setPos(0,0)
+        
+    def remove(self):
+        self.scene().removeItem(self)
+        self.setParent(None)
+        self.deleteLater()
+
+    def mirror_position(self):
+        '''Mirror picker position (on X axis)
+        '''
+        self.setX(-1 * self.pos().x())
+    
+    def mirror_shape(self):
+        '''Will mirror polygon handles position on X axis
+        '''
+        for handle in self.handles:
+            handle.mirror_x_position()
+        self.mirror_position()
+        self.mirror_color()
+    
+    def mirror_color(self):
+        '''Will reverse red/bleu rgb values for the polygon color
+        '''
+        old_color = self.get_color()
+        new_color = QtGui.QColor(old_color.blue(),
+                                 old_color.green(),
+                                 old_color.red(),
+                                 alpha=old_color.alpha())
+        self.set_color(new_color)
+        
+    def set_data(self, data):
+        '''Set picker item from data dictionary
+        '''
+        # Set color
+        if 'color' in data:
+            color = QtGui.QColor(*data['color'])
+            self.set_color(color)
+        
+        # Set position
+        position = data.get('position', [0,0])
+        self.setPos(*position)
+        
+        # Set handles
+        if 'handles' in data:
+            self.set_handles(data['handles'])
+        
+    def get_data(self):
+        '''Get picker item data in dictionary form
+        '''
+        # Init data dict
+        data = dict()
+        
+        # Add polygon color
+        data['color'] = self.get_color().getRgb()
+        
+        # Add position
+        data['position'] = [self.x(), self.y()]
+        
+        # Add handles datas
+        handles_data = list()
+        for handle in self.handles:
+            handles_data.extend([handle.x(), handle.y()])
+        data['handles'] = handles_data
+        
+        return data
         
 
 class ItemOptionsWindow(QtGui.QMainWindow):
