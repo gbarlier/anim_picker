@@ -1844,7 +1844,166 @@ class PolygonShapeWidget(QtGui.QWidget):
 #        print 'done current'
 #        QtOpenGL.QGLWidget.doneCurrent(self)
 #        WGL.wglMakeCurrent(self._HDC, self._HRC)
+
+
+class CustomMenuEditDialog(QtGui.QDialog):
+    def __init__(self, parent=None, name=None, cmd=None):
+        QtGui.QDialog.__init__(self, parent)
         
+        self.name = name
+        self.cmd = cmd
+        
+        self.apply = False
+        self.setup()
+        
+    def setup(self):
+        '''Build/Setup the dialog window
+        '''
+        # Add layout
+        self.main_layout = QtGui.QVBoxLayout(self)
+        
+        # Add name line edit
+        self.name_widget = QtGui.QLineEdit()
+        if self.name:
+            self.name_widget.setText(self.name)
+        self.main_layout.addWidget(self.name_widget)
+        
+        # Add cmd txt field
+        self.cmd_widget = QtGui.QTextEdit()
+        if self.cmd:
+            self.cmd_widget.setText(self.cmd)
+        self.main_layout.addWidget(self.cmd_widget)
+        
+        # Add buttons
+        btn_layout = QtGui.QHBoxLayout()
+        self.main_layout.addLayout(btn_layout)
+        
+        ok_btn = CallbackButton(callback=self.accept_event)
+        ok_btn.setText('Ok')
+        btn_layout.addWidget(ok_btn)
+        
+        cancel_btn = CallbackButton(callback=self.cancel_event)
+        cancel_btn.setText('Cancel')
+        btn_layout.addWidget(cancel_btn)
+        
+        run_btn = CallbackButton(callback=self.run_event)
+        run_btn.setText('Run')
+        btn_layout.addWidget(run_btn)
+    
+    def accept_event(self):
+        '''Accept button event
+        '''
+        self.apply = True
+        
+        self.accept()
+        self.close()
+    
+    def cancel_event(self):
+        '''Cancel button event
+        '''
+        self.apply = False
+        self.close()
+    
+    def run_event(self):
+        '''Run event button
+        '''
+        cmd_str = unicode(self.cmd_widget.toPlainText())
+        python_handlers.safe_code_exec(cmd_str)
+            
+    def get_values(self):
+        '''Return dialog window result values 
+        '''
+        name_str = unicode(self.name_widget.text())
+        cmd_str = unicode(self.cmd_widget.toPlainText())
+        
+        return name_str, cmd_str, self.apply
+    
+    @classmethod
+    def get(cls, name=None, cmd=None):
+        '''
+        Default method used to run the dialog input window
+        Will open the dialog window and return input texts.
+        '''
+        win = cls(name=name, cmd=cmd)
+        win.exec_()
+        win.raise_()
+        return win.get_values()
+
+
+class SearchAndReplaceDialog(QtGui.QDialog):
+    '''Search and replace dialog window
+    '''
+    __SEARCH_STR__ = 'L_'
+    __REPLACE_STR__ = 'R_'
+    
+    def __init__(self, parent=None):
+        QtGui.QDialog.__init__(self, parent)
+        
+        self.apply = False
+        self.setup()
+        
+    def setup(self):
+        '''Build/Setup the dialog window
+        '''
+        # Add layout
+        self.main_layout = QtGui.QVBoxLayout(self)
+        
+        # Add line edits
+        self.search_widget = QtGui.QLineEdit()
+        self.search_widget.setText(self.__SEARCH_STR__)
+        self.main_layout.addWidget(self.search_widget)
+        
+        self.replace_widget = QtGui.QLineEdit()
+        self.replace_widget.setText(self.__REPLACE_STR__)
+        self.main_layout.addWidget(self.replace_widget)
+    
+        # Add buttons
+        btn_layout = QtGui.QHBoxLayout()
+        self.main_layout.addLayout(btn_layout)
+        
+        ok_btn = CallbackButton(callback=self.accept_event)
+        ok_btn.setText('Ok')
+        btn_layout.addWidget(ok_btn)
+        
+        cancel_btn = CallbackButton(callback=self.cancel_event)
+        cancel_btn.setText('Cancel')
+        btn_layout.addWidget(cancel_btn)
+        
+    def accept_event(self):
+        '''Accept button event
+        '''
+        self.apply = True
+        
+        self.accept()
+        self.close()
+    
+    def cancel_event(self):
+        '''Cancel button event
+        '''
+        self.apply = False
+        self.close()
+        
+    def get_values(self):
+        '''Return field values and button choice
+        '''
+        search_str = unicode(self.search_widget.text())
+        replace_str = unicode(self.replace_widget.text())
+        if self.apply:
+            SearchAndReplaceDialog.__SEARCH_STR__ = search_str 
+            SearchAndReplaceDialog.__REPLACE_STR__ = replace_str 
+        return search_str, replace_str, self.apply
+    
+    @classmethod
+    def get(cls):
+        '''
+        Default method used to run the dialog input window
+        Will open the dialog window and return input texts.
+        '''
+        win = cls()
+        win.exec_()
+        win.raise_()
+        return win.get_values()
+    
         
 class GraphicViewWidget(QtGui.QGraphicsView):
     '''Graphic view widget that display the "polygons" picker items 
@@ -2627,6 +2786,8 @@ class PickerItem(DefaultPolygon):
         new_item.mirror_color()
         new_item.mirror_position()
         new_item.mirror_shape()
+        if self.get_controls():
+            new_item.search_and_replace_controls()
         return new_item
     
     #===========================================================================
@@ -2670,30 +2831,29 @@ class PickerItem(DefaultPolygon):
         self.controls.remove(ctrl)
     
     def search_and_replace_controls(self):
-        '''Will search and replace in maya node names
+        '''Will search and replace in associated controls names
         '''
-        return 
-#        # Open Search and replace dialog window
-#        search, replace, ok = SearchAndReplaceDialog.get()
-#        if not ok:
-#            return
-#        
-#        # Parse controls
-#        node_missing = False
-#        controls = self.get_controls()
-#        for i in range(len(controls)):
-#            controls[i] = re.sub(search, replace, controls[i])
-#            if not cmds.objExists(controls[i]):
-#                node_missing = True 
-#        
-#        # Print warning
-#        if node_missing:
-#            QtGui.QMessageBox.warning(self,
-#                                      "Warning",
-#                                      "Some target controls don't exists")
-#        
-#        # Update list
-#        self.set_control_list(controls)
+        # Open Search and replace dialog window
+        search, replace, ok = SearchAndReplaceDialog.get()
+        if not ok:
+            return
+        
+        # Parse controls
+        node_missing = False
+        controls = self.get_controls()
+        for i in range(len(controls)):
+            controls[i] = re.sub(search, replace, controls[i])
+            if not cmds.objExists(controls[i]):
+                node_missing = True 
+        
+        # Print warning
+        if node_missing:
+            QtGui.QMessageBox.warning(self.parent(),
+                                      "Warning",
+                                      "Some target controls do not exist")
+        
+        # Update list
+        self.set_control_list(controls)
         
     def select_associated_controls(self, modifier=None):
         '''Will select maya associated controls
@@ -2755,6 +2915,10 @@ class PickerItem(DefaultPolygon):
         # Set handles
         if 'handles' in data:
             self.set_handles(data['handles'])
+            
+        # Set controls
+        if 'controls' in data:
+            self.set_control_list(data['controls'])
         
     def get_data(self):
         '''Get picker item data in dictionary form
@@ -2774,6 +2938,10 @@ class PickerItem(DefaultPolygon):
             handles_data.append([handle.x(), handle.y()])
         data['handles'] = handles_data
         
+        # Add controls data
+        if self.get_controls():
+            data['controls'] = self.get_controls()
+            
         return data
         
 
