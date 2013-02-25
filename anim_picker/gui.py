@@ -1628,9 +1628,6 @@ class PolygonShapeWidget(QtGui.QWidget):
         '''
         self.data.set_maya_nodes(ctrls)
 
-    def search_replace_controls(self):
-        pass
-    
     def get_controls(self):
         '''Return associated controls 
         '''
@@ -1857,6 +1854,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         
         self.setScene(QtGui.QGraphicsScene())
         self.scene().setSceneRect( -100,-100, 200, 200 )
+        self.scene().get_namespace = self._scene_get_namespace
         
         # Open GL render, to check...
         if __USE_OPENGL__:
@@ -1873,10 +1871,17 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             self.setViewport(gl_widget)
             
         self.setResizeAnchor( self.AnchorViewCenter )
-        
-    def set_background(self):
-        pass
-
+    
+    def _scene_get_namespace(self):
+        '''Used to provide namespace callback for picker items in scene
+        '''
+        return self.get_namespace()
+    
+    def get_namespace(self):
+        '''This function should be overritten by callback after init
+        '''
+        return ''
+    
 #    def mouseMoveEvent(self, event):
 #        print event.pos() # debug
 #        return QtGui.QGraphicsView.mouseMoveEvent(self, event)
@@ -2113,7 +2118,7 @@ class PointHandle(DefaultPolygon):
         # Set node background color
         brush = QtGui.QBrush(self.color)
         if self._hovered:
-            print 'handle hovered'
+            print '### handle hovered'
             brush = QtGui.QBrush(self.color.lighter(500))
             
         # Paint background
@@ -2166,6 +2171,7 @@ class Polygon(DefaultPolygon):
         self.color = color
         
         self._edit_status = False
+        self.selected = False
         
     def setup(self):
         '''Setup control 
@@ -2236,18 +2242,18 @@ class Polygon(DefaultPolygon):
             brush = QtGui.QBrush(self.color)
         else:
             brush = QtGui.QBrush(self.color.lighter(130))
-            print '### polygon hovered'
         
         # Paint background
         painter.fillPath(path, brush)
         
-        # Set pen color
-        border_pen = QtGui.QPen(QtGui.QColor(255,0,0,255))
-#        border_pen.setWidthF(1)
-        painter.setPen(border_pen)
-        
-        # Paint Borders
-        painter.drawPath(path)
+        # Selection boder color feedback
+        if self.selected:
+            # Set pen color
+            border_pen = QtGui.QPen(QtGui.QColor(0,255,0,255))
+            painter.setPen(border_pen)
+            
+            # Paint boder
+            painter.drawPath(path)
         
         if not self._edit_status:
             return
@@ -2257,7 +2263,18 @@ class Polygon(DefaultPolygon):
         painter.setPen( QtGui.QColor(0,0,0,180) ) 
         painter.drawLine(-5, 0, 5, 0)
         painter.drawLine(0, 5, 0, -5)
-             
+    
+    def set_selected_state(self, state):
+        '''Will set border color feedback based on selection state
+        '''
+        # Do nothing on same state
+        if state == self.selected:
+            return
+            
+        # Change state, and update
+        self.polygon.selected = state
+        self.update()
+        
 
 class PickerItem(DefaultPolygon):
     def __init__(self,
@@ -2281,6 +2298,10 @@ class PickerItem(DefaultPolygon):
         self.handles = list() 
         self.polygon = Polygon(parent=self)
         self.set_handles(self.get_default_handles())
+        
+        # Controls vars
+        self.controls = list()
+        self.custom_menus = list()
         
     def shape(self):
         path = QtGui.QPainterPath()
@@ -2358,7 +2379,7 @@ class PickerItem(DefaultPolygon):
         
         # Reset points
         points = self.get_default_handles()
-        self.set_points(points)
+        self.set_handles(points)
         
 #        # Update display
 #        self.update()
@@ -2369,7 +2390,7 @@ class PickerItem(DefaultPolygon):
         # Remove existing handles
         for handle in self.handles:
             self.scene().removeItem(handle)
-            
+        
         # Parse input type
         new_handles = list()
         for handle in handles:
@@ -2387,6 +2408,8 @@ class PickerItem(DefaultPolygon):
         for handle in self.handles:
             handle.setVisible(self.get_edit_status())
     
+    #===========================================================================
+    # Mouse events ---
     def mouseDoubleClickEvent(self, event):
         '''Event called when mouse is double clicked
         '''
@@ -2403,9 +2426,9 @@ class PickerItem(DefaultPolygon):
         if __EDIT_MODE__.get():
             self.edit_context_menu(event)
         
-#        # Context menu for default mode
-#        else:
-#            self.default_context_menu(event)  
+        # Context menu for default mode
+        else:
+            self.default_context_menu(event)  
         
 #        # Force call release method
 #        self.mouseReleaseEvent(event)
@@ -2450,14 +2473,14 @@ class PickerItem(DefaultPolygon):
         remove_action = QtGui.QAction("Remove", None)
         remove_action.triggered.connect(self.remove)
         menu.addAction(remove_action)
-#        
-#        duplicate_action = QtGui.QAction("Duplicate", None)
-#        duplicate_action.triggered.connect(self.active_control.duplicate)
-#        menu.addAction(duplicate_action)
-#        
-#        mirror_dup_action = QtGui.QAction("Duplicate/mirror", None)
-#        mirror_dup_action.triggered.connect(self.active_control.duplicate_and_mirror)
-#        menu.addAction(mirror_dup_action)
+                
+        duplicate_action = QtGui.QAction("Duplicate", None)
+        duplicate_action.triggered.connect(self.duplicate)
+        menu.addAction(duplicate_action)
+        
+        mirror_dup_action = QtGui.QAction("Duplicate/mirror", None)
+        mirror_dup_action.triggered.connect(self.duplicate_and_mirror)
+        menu.addAction(mirror_dup_action)
         
         # Open context menu under mouse
         offseted_pos = event.pos() + QtCore.QPointF(5,0) # offset position to prevent accidental mouse release on menu 
@@ -2466,6 +2489,48 @@ class PickerItem(DefaultPolygon):
         screen_pos = self.parent().mapToGlobal(view_pos)
         menu.exec_(screen_pos)
     
+    def default_context_menu(self, event):
+        '''Context menu (right click) out of edition mode (animation)
+        '''
+        # Init context menu
+        menu = QtGui.QMenu(self)
+            
+#        # Add reset action
+#        reset_action = QtGui.QAction("Reset", None)
+#        reset_action.triggered.connect(self.active_control.reset_to_bind_pose)
+#        menu.addAction(reset_action)
+                        
+        # Add custom actions
+        self._add_custom_action_menus(menu)
+        
+        # Open context menu under mouse
+        if not menu.isEmpty():
+            menu.exec_(self.mapToGlobal(event.pos()))
+    
+    def _add_custom_action_menus(self, menu):
+        # Define custom exec cmd wrapper
+        def wrapper(cmd):
+            def custom_eval(*args, **kwargs):
+                python_handlers.safe_code_exec(cmd)
+            return custom_eval
+        
+        # Get active controls custom menus
+        custom_data = self.get_custom_menus()
+        if not custom_data:
+            return
+        
+        # Init action list to fix loop problem where qmenu only show last action
+        # when using the same variable name ...
+        actions = list() 
+        
+        # Build menu
+        for i in range(len(custom_data)):
+            actions.append(QtGui.QAction(custom_data[i][0], None))
+            actions[i].triggered.connect(wrapper(custom_data[i][1]))
+            menu.addAction(actions[i])
+
+    #===========================================================================
+    # Edit picker item options ---
     def edit_options(self):
         '''Open Edit options window
         '''
@@ -2495,6 +2560,8 @@ class PickerItem(DefaultPolygon):
         '''
         self.set_edit_status(not self._edit_status)
     
+    #===========================================================================
+    # Properties methods ---
     def get_color(self):
         '''Get polygon color
         '''
@@ -2515,7 +2582,9 @@ class PickerItem(DefaultPolygon):
         self.scene().removeItem(self)
         self.setParent(None)
         self.deleteLater()
-
+    
+    #===========================================================================
+    # Ducplicate and mirror methods ---
     def mirror_position(self):
         '''Mirror picker position (on X axis)
         '''
@@ -2526,8 +2595,6 @@ class PickerItem(DefaultPolygon):
         '''
         for handle in self.handles:
             handle.mirror_x_position()
-        self.mirror_position()
-        self.mirror_color()
     
     def mirror_color(self):
         '''Will reverse red/bleu rgb values for the polygon color
@@ -2538,7 +2605,141 @@ class PickerItem(DefaultPolygon):
                                  old_color.red(),
                                  alpha=old_color.alpha())
         self.set_color(new_color)
+    
+    def duplicate(self, *args, **kwargs):
+        '''Will create a new picker item and copy data over.
+        '''
+        # Create new picker item
+        new_item = PickerItem()
+        new_item.setParent(self.parent())
+        self.scene().addItem(new_item)
         
+        # Copy data over
+        data = self.get_data()
+        new_item.set_data(data)
+        
+        return new_item
+    
+    def duplicate_and_mirror(self):
+        '''Duplicate and mirror picker item
+        '''
+        new_item = self.duplicate()
+        new_item.mirror_color()
+        new_item.mirror_position()
+        new_item.mirror_shape()
+        return new_item
+    
+    #===========================================================================
+    # Controls handling ---
+    def get_namespace(self):
+        '''Will return associated namespace
+        '''
+        return self.scene().get_namespace()
+    
+    def set_control_list(self, ctrls=list()):
+        '''Update associated control list
+        '''
+        self.controls = ctrls
+
+    def get_controls(self):
+        '''Return associated controls 
+        '''
+        # Get namespace
+        namespace = self.get_namespace()
+        
+        # No namespace, return nodes
+        if not namespace:
+            return self.controls
+        
+        # Prefix nodes with namespace
+        nodes = list()
+        for node in self.controls:
+            nodes.append('%s:%s'%(namespace, node))
+        return nodes
+    
+    def append_control(self, ctrl):
+        '''Add control to list
+        '''
+        self.controls.append(ctrl)
+    
+    def remove_control(self, ctrl):
+        '''Remove control from list
+        '''
+        if not ctrl in self.controls:
+            return
+        self.controls.remove(ctrl)
+    
+    def search_and_replace_controls(self):
+        '''Will search and replace in maya node names
+        '''
+        return 
+#        # Open Search and replace dialog window
+#        search, replace, ok = SearchAndReplaceDialog.get()
+#        if not ok:
+#            return
+#        
+#        # Parse controls
+#        node_missing = False
+#        controls = self.get_controls()
+#        for i in range(len(controls)):
+#            controls[i] = re.sub(search, replace, controls[i])
+#            if not cmds.objExists(controls[i]):
+#                node_missing = True 
+#        
+#        # Print warning
+#        if node_missing:
+#            QtGui.QMessageBox.warning(self,
+#                                      "Warning",
+#                                      "Some target controls don't exists")
+#        
+#        # Update list
+#        self.set_control_list(controls)
+        
+    def select_associated_controls(self, modifier=None):
+        '''Will select maya associated controls
+        '''       
+        maya_handlers.select_nodes(self.get_controls(),
+                                   modifier=modifier)
+    
+    def is_selected(self):
+        '''
+        Will return True if the nod from maya_nodes is currently selected
+        (Only works with polygon that have a single associated maya_node)
+        '''
+        # Get controls associated nodes
+        controls = self.get_controls()
+        
+        # Abort if not single control polygon
+        if not len(controls) == 1:
+            return False
+        
+        # Check
+        return __SELECTION__.is_selected(controls[0])
+    
+    def set_selected_state(self, state):
+        '''Will set border color feedback based on selection state
+        '''
+        self.polygon.set_selected_state(state)
+        
+    def run_selection_check(self):
+        '''Will set selection state based on selection status
+        '''
+        self.set_selected_state(self.is_selected())
+    
+    #===========================================================================
+    # Custom menus handling ---
+    def set_custom_menus(self, menus):
+        '''Set custom menu list for current poly data
+        '''
+        self.custom_menus = list(menus)
+    
+    def get_custom_menus(self):
+        '''Return current menu list for current poly data
+        '''
+        return self.custom_menus
+    
+    #===========================================================================
+    # Data handling ---
     def set_data(self, data):
         '''Set picker item from data dictionary
         '''
@@ -2570,7 +2771,7 @@ class PickerItem(DefaultPolygon):
         # Add handles datas
         handles_data = list()
         for handle in self.handles:
-            handles_data.extend([handle.x(), handle.y()])
+            handles_data.append([handle.x(), handle.y()])
         data['handles'] = handles_data
         
         return data
@@ -2630,7 +2831,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self.add_color_options()
 #        self.add_scale_options()
 #        self.add_text_options()
-#        self.add_target_control_field()
+        self.add_target_control_field()
 #        self.add_custom_menus_field()
         
         # Add layouts stretch
@@ -2641,7 +2842,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self._update_position_infos()
         self._update_color_infos()
 #        self._update_text_infos()
-#        self._update_ctrls_infos()
+        self._update_ctrls_infos()
 #        self._update_menus_infos()
     
     def _update_shape_infos(self):
@@ -2676,8 +2877,8 @@ class ItemOptionsWindow(QtGui.QMainWindow):
 #        self.text_alpha_sb.setValue(self.picker_item.get_text_color().alpha())
 #        self.event_disabled = False
 #        
-#    def _update_ctrls_infos(self):
-#        self._populate_ctrl_list_widget()
+    def _update_ctrls_infos(self):
+        self._populate_ctrl_list_widget()
 #    
 #    def _update_menus_infos(self):
 #        self._populate_menu_list_widget()
@@ -2898,33 +3099,33 @@ class ItemOptionsWindow(QtGui.QMainWindow):
 #        # Add to main left layout
 #        self.left_layout.addWidget(group_box)
 #        
-#    def add_target_control_field(self):
-#        '''Add target control association group box
-#        '''
-#        # Create group box
-#        group_box = QtGui.QGroupBox()
-#        group_box.setTitle('Control Association')
-#        
-#        # Add layout
-#        layout = QtGui.QVBoxLayout(group_box)
-#        
-#        # Init list object
-#        self.control_list = CallbackListWidget(callback=self.edit_ctrl_name_event)
-#        layout.addWidget(self.control_list)
-#        
-#        # Add buttons
-#        btn_layout1 = QtGui.QHBoxLayout()
-#        layout.addLayout(btn_layout1)
-#        
-#        btn = CallbackButton(callback=self.add_selected_controls_event)
-#        btn.setText('Add Selection')
-#        btn_layout1.addWidget(btn)
-#        
-#        btn = CallbackButton(callback=self.remove_controls_event)
-#        btn.setText('Remove')
-#        btn_layout1.addWidget(btn)
-#        
-#        self.right_layout.addWidget(group_box)
+    def add_target_control_field(self):
+        '''Add target control association group box
+        '''
+        # Create group box
+        group_box = QtGui.QGroupBox()
+        group_box.setTitle('Control Association')
+        
+        # Add layout
+        layout = QtGui.QVBoxLayout(group_box)
+        
+        # Init list object
+        self.control_list = CallbackListWidget(callback=self.edit_ctrl_name_event)
+        layout.addWidget(self.control_list)
+        
+        # Add buttons
+        btn_layout1 = QtGui.QHBoxLayout()
+        layout.addLayout(btn_layout1)
+        
+        btn = CallbackButton(callback=self.add_selected_controls_event)
+        btn.setText('Add Selection')
+        btn_layout1.addWidget(btn)
+        
+        btn = CallbackButton(callback=self.remove_controls_event)
+        btn.setText('Remove')
+        btn_layout1.addWidget(btn)
+        
+        self.right_layout.addWidget(group_box)
 #    
 #    def add_custom_menus_field(self):
 #        '''Add custom menu management groupe box
@@ -3090,166 +3291,166 @@ class ItemOptionsWindow(QtGui.QMainWindow):
 #        # Update color
 #        self.picker_item.set_text_color(color)
 #        
-#    #===========================================================================
-#    # Control management
-#    def _populate_ctrl_list_widget(self):
-#        '''Will update/populate list with current shape ctrls
-#        '''        
-#        # Empty list
-#        self.control_list.clear()
-#        
-#        # Populate node list
-#        controls = self.picker_item.get_controls() 
-#        for i in range(len(controls)):
-#            item = CtrlListWidgetItem(index=i)
-#            item.setText(controls[i])
-#            self.control_list.addItem(item)
-#    
-#    def edit_ctrl_name_event(self, item=None):
-#        '''Double click event on associated ctrls list
-#        '''
-#        if not item:
-#            return
-#        
-#        # Open input window
-#        name, ok = QtGui.QInputDialog.getText(self,
-#                                              self.tr("Ctrl name"),
-#                                              self.tr('New name'),
-#                                              QtGui.QLineEdit.Normal,
-#                                              self.tr(item.text()))
-#        if not (ok and name):
-#            return
-#        
-#        # Update influence name
-#        new_name = item.setText(name)
-#        if new_name:
-#            self.update_shape_controls_list()
-#        
-#        # Deselect item
-#        self.control_list.clearSelection()
-#        
-#    def add_selected_controls_event(self):
-#        '''Will add maya selected object to control list
-#        '''
-#        # Get selection
-#        sel = cmds.ls(sl=True)
-#        
-#        # Add to stored list
-#        for ctrl in sel:
-#            if ctrl in self.picker_item.get_controls():
-#                continue
-#            self.picker_item.append_control(ctrl)
-#        
-#        # Update display
-#        self._populate_ctrl_list_widget()
-#    
-#    def remove_controls_event(self):
-#        '''Will remove selected item list from stored controls 
-#        '''
-#        # Get selected item
-#        items = self.control_list.selectedItems()
-#        assert items, 'no list item selected'
-#        
-#        # Remove item from list
-#        for item in items:
-#            self.picker_item.remove_control(item.node())
-#            
-#        # Update display
-#        self._populate_ctrl_list_widget()
-#              
-#    def get_controls_from_list(self):
-#        '''Return the controls from list widget
-#        '''
-#        ctrls = list()
-#        for i in range(self.control_list.count()):
-#            item = self.control_list.item(i)
-#            ctrls.append(item.node()) 
-#        return ctrls
-#        
-#    def update_shape_controls_list(self):
-#        '''Update shape stored control list
-#        '''        
-#        ctrls = self.get_controls_from_list()
-#        self.picker_item.set_control_list(ctrls)
-#        
-#    #===========================================================================
-#    # Menus management
-#    def _add_menu_item(self, text=None):
-#        item = QtGui.QListWidgetItem()
-#        item.index = self.menus_list.count()
-#        if text:
-#            item.setText(text)
-#        self.menus_list.addItem(item)
-#        return item
-#            
-#    def _populate_menu_list_widget(self):
-#        '''
-#        '''
-#        # Empty list
-#        self.menus_list.clear()
-#        
-#        # Populate node list
-#        menus_data = self.picker_item.data.get_custom_menus() 
-#        for i in range(len(menus_data)):
-#            self._add_menu_item(text=menus_data[i][0])
-#    
-#    def _update_menu_data(self, index, name, cmd):
-#        menu_data = self.picker_item.data.get_custom_menus()
-#        if index> len(menu_data)-1:
-#            menu_data.append([name, cmd])
-#        else:
-#            menu_data[index] = [name, cmd]
-#        self.picker_item.data.set_custom_menus(menu_data)
-#        
-#    def edit_menu_event(self, item=None):
-#        '''Double click event on associated menu list
-#        '''
-#        if not item:
-#            return
-#        
-#        name, cmd = self.picker_item.data.get_custom_menus()[item.index]
-#        
-#        # Open input window
-#        name, cmd, ok = CustomMenuEditDialog.get(name=name, cmd=cmd)
-#        if not (ok and name and cmd):
-#            return
-#        
-#        # Update menu display name
-#        item.setText(name)
-#        
-#        # Update menu data
-#        self._update_menu_data(item.index, name, cmd)
-#        
-#        # Deselect item
-#        self.control_list.clearSelection()
-#    
-#    def new_menu_event(self):
-#        '''
-#        '''
-#        # Open input window
-#        name, cmd, ok = CustomMenuEditDialog.get()
-#        if not (ok and name and cmd):
-#            return
-#        
-#        # Update menu display name
-#        item = self._add_menu_item(text=name)
-#        
-#        # Update menu data
-#        self._update_menu_data(item.index, name, cmd)
-#    
-#    def remove_menus_event(self):
-#        # Get selected item
-#        items = self.control_list.selectedItems()
-#        assert items, 'no list item selected'
-#        
-#        # Remove item from list
-#        menu_data = self.picker_item.data.get_custom_menus()
-#        for i in range(len(items)):
-#            menu_data.pop(items[i].index -i)
-#        self.picker_item.data.set_custom_menus(menu_data)
-#        
-#        # Update display
-#        self._populate_ctrl_list_widget()
+    #===========================================================================
+    # Control management
+    def _populate_ctrl_list_widget(self):
+        '''Will update/populate list with current shape ctrls
+        '''        
+        # Empty list
+        self.control_list.clear()
+        
+        # Populate node list
+        controls = self.picker_item.get_controls() 
+        for i in range(len(controls)):
+            item = CtrlListWidgetItem(index=i)
+            item.setText(controls[i])
+            self.control_list.addItem(item)
+    
+    def edit_ctrl_name_event(self, item=None):
+        '''Double click event on associated ctrls list
+        '''
+        if not item:
+            return
+        
+        # Open input window
+        name, ok = QtGui.QInputDialog.getText(self,
+                                              self.tr("Ctrl name"),
+                                              self.tr('New name'),
+                                              QtGui.QLineEdit.Normal,
+                                              self.tr(item.text()))
+        if not (ok and name):
+            return
+        
+        # Update influence name
+        new_name = item.setText(name)
+        if new_name:
+            self.update_shape_controls_list()
+        
+        # Deselect item
+        self.control_list.clearSelection()
+        
+    def add_selected_controls_event(self):
+        '''Will add maya selected object to control list
+        '''
+        # Get selection
+        sel = cmds.ls(sl=True)
+        
+        # Add to stored list
+        for ctrl in sel:
+            if ctrl in self.picker_item.get_controls():
+                continue
+            self.picker_item.append_control(ctrl)
+        
+        # Update display
+        self._populate_ctrl_list_widget()
+    
+    def remove_controls_event(self):
+        '''Will remove selected item list from stored controls 
+        '''
+        # Get selected item
+        items = self.control_list.selectedItems()
+        assert items, 'no list item selected'
+        
+        # Remove item from list
+        for item in items:
+            self.picker_item.remove_control(item.node())
+            
+        # Update display
+        self._populate_ctrl_list_widget()
+              
+    def get_controls_from_list(self):
+        '''Return the controls from list widget
+        '''
+        ctrls = list()
+        for i in range(self.control_list.count()):
+            item = self.control_list.item(i)
+            ctrls.append(item.node()) 
+        return ctrls
+        
+    def update_shape_controls_list(self):
+        '''Update shape stored control list
+        '''        
+        ctrls = self.get_controls_from_list()
+        self.picker_item.set_control_list(ctrls)
+
+    #===========================================================================
+    # Menus management
+    def _add_menu_item(self, text=None):
+        item = QtGui.QListWidgetItem()
+        item.index = self.menus_list.count()
+        if text:
+            item.setText(text)
+        self.menus_list.addItem(item)
+        return item
+            
+    def _populate_menu_list_widget(self):
+        '''
+        '''
+        # Empty list
+        self.menus_list.clear()
+        
+        # Populate node list
+        menus_data = self.picker_item.get_custom_menus() 
+        for i in range(len(menus_data)):
+            self._add_menu_item(text=menus_data[i][0])
+    
+    def _update_menu_data(self, index, name, cmd):
+        menu_data = self.picker_item.get_custom_menus()
+        if index> len(menu_data)-1:
+            menu_data.append([name, cmd])
+        else:
+            menu_data[index] = [name, cmd]
+        self.picker_item.set_custom_menus(menu_data)
+        
+    def edit_menu_event(self, item=None):
+        '''Double click event on associated menu list
+        '''
+        if not item:
+            return
+        
+        name, cmd = self.picker_item.get_custom_menus()[item.index]
+        
+        # Open input window
+        name, cmd, ok = CustomMenuEditDialog.get(name=name, cmd=cmd)
+        if not (ok and name and cmd):
+            return
+        
+        # Update menu display name
+        item.setText(name)
+        
+        # Update menu data
+        self._update_menu_data(item.index, name, cmd)
+        
+        # Deselect item
+        self.menus_list.clearSelection()
+    
+    def new_menu_event(self):
+        '''
+        '''
+        # Open input window
+        name, cmd, ok = CustomMenuEditDialog.get()
+        if not (ok and name and cmd):
+            return
+        
+        # Update menu display name
+        item = self._add_menu_item(text=name)
+        
+        # Update menu data
+        self._update_menu_data(item.index, name, cmd)
+    
+    def remove_menus_event(self):
+        # Get selected item
+        items = self.menus_list.selectedItems()
+        assert items, 'no list item selected'
+        
+        # Remove item from list
+        menu_data = self.picker_item.get_custom_menus()
+        for i in range(len(items)):
+            menu_data.pop(items[i].index -i)
+        self.picker_item.set_custom_menus(menu_data)
+        
+        # Update display
+        self._populate_menu_list_widget()
         
     
 class MainDockWindow(QtGui.QDockWidget):
@@ -3387,6 +3588,9 @@ class MainDockWindow(QtGui.QDockWidget):
         self.view = GraphicViewWidget()
         self.tab_widget.addTab(self.view, name)
         
+        # Overwrite callbacks
+        self.view.get_namespace = self._get_current_namespace
+        
 #        # Add mouse event catcher widget
 #        self.mouse_catcher = MouseEventCatcherWidget(parent=self,
 #                                                     get_ctrls_callback=self.get_ctrl_list,
@@ -3508,26 +3712,26 @@ class MainDockWindow(QtGui.QDockWidget):
 #
 #        return ctrl
     
-    def remove_ctrl(self, ctrl):
-        '''Delete ctrl and remove from data
-        '''
-        # Get tab index
-        index = self.tab_widget.currentIndex()
-        
-        # Remove from control list
-        control_widgets = self.get_current_data().tabs[index].get_control_widgets()
-        if not ctrl in control_widgets:
-            return
-        
-        # Close ctrl edit window if open
-        if ctrl.edit_window:
-            ctrl.edit_window.close()
-        
-        # Delete widget
-        ctrl.deleteLater()
-        self.get_current_data().tabs[index].controls.pop(control_widgets.index(ctrl))
-        ctrl.close()
-        ctrl = None
+#    def remove_ctrl(self, ctrl):
+#        '''Delete ctrl and remove from data
+#        '''
+#        # Get tab index
+#        index = self.tab_widget.currentIndex()
+#        
+#        # Remove from control list
+#        control_widgets = self.get_current_data().tabs[index].get_control_widgets()
+#        if not ctrl in control_widgets:
+#            return
+#        
+#        # Close ctrl edit window if open
+#        if ctrl.edit_window:
+#            ctrl.edit_window.close()
+#        
+#        # Delete widget
+#        ctrl.deleteLater()
+#        self.get_current_data().tabs[index].controls.pop(control_widgets.index(ctrl))
+#        ctrl.close()
+#        ctrl = None
     
     def move_ctrl_to_back_event(self, ctrl):
         '''Move control to background layer
