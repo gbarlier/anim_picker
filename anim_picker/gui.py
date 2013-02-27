@@ -1847,11 +1847,16 @@ class PolygonShapeWidget(QtGui.QWidget):
 
 
 class CustomMenuEditDialog(QtGui.QDialog):
-    def __init__(self, parent=None, name=None, cmd=None):
+    def __init__(self,
+                 parent=None,
+                 name=None,
+                 cmd=None,
+                 item=None):
         QtGui.QDialog.__init__(self, parent)
         
         self.name = name
         self.cmd = cmd
+        self.picker_item = item
         
         self.apply = False
         self.setup()
@@ -1872,6 +1877,9 @@ class CustomMenuEditDialog(QtGui.QDialog):
         self.cmd_widget = QtGui.QTextEdit()
         if self.cmd:
             self.cmd_widget.setText(self.cmd)
+        else:
+            default_text = '# Use __CONTROLS__ in your code to get picker item associated controls'
+            self.cmd_widget.setText(default_text)
         self.main_layout.addWidget(self.cmd_widget)
         
         # Add buttons
@@ -1889,7 +1897,9 @@ class CustomMenuEditDialog(QtGui.QDialog):
         run_btn = CallbackButton(callback=self.run_event)
         run_btn.setText('Run')
         btn_layout.addWidget(run_btn)
-    
+        
+        self.resize(500, 600)
+        
     def accept_event(self):
         '''Accept button event
         '''
@@ -1908,7 +1918,12 @@ class CustomMenuEditDialog(QtGui.QDialog):
         '''Run event button
         '''
         cmd_str = unicode(self.cmd_widget.toPlainText())
-        python_handlers.safe_code_exec(cmd_str)
+        
+        if self.picker_item:
+            python_handlers.safe_code_exec(cmd_str,
+                                           env=self.picker_item.get_exec_env())
+        else:
+            python_handlers.safe_code_exec(cmd_str)
             
     def get_values(self):
         '''Return dialog window result values 
@@ -1919,12 +1934,12 @@ class CustomMenuEditDialog(QtGui.QDialog):
         return name_str, cmd_str, self.apply
     
     @classmethod
-    def get(cls, name=None, cmd=None):
+    def get(cls, name=None, cmd=None, item=None):
         '''
         Default method used to run the dialog input window
         Will open the dialog window and return input texts.
         '''
-        win = cls(name=name, cmd=cmd)
+        win = cls(name=name, cmd=cmd, item=item)
         win.exec_()
         win.raise_()
         return win.get_values()
@@ -2666,11 +2681,25 @@ class PickerItem(DefaultPolygon):
         if not menu.isEmpty():
             menu.exec_(self.mapToGlobal(event.pos()))
     
+    def get_exec_env(self):
+        '''
+        Will return proper environnement dictionnary for eval execs
+        (Will provide related controls as __CONTROLS__ variable)
+        '''
+        # Init env
+        env  = dict()
+        
+        # Add controls vars
+        env['__CONTROLS__'] = self.get_controls()
+        
+        return env
+    
     def _add_custom_action_menus(self, menu):
         # Define custom exec cmd wrapper
         def wrapper(cmd):
             def custom_eval(*args, **kwargs):
-                python_handlers.safe_code_exec(cmd)
+                python_handlers.safe_code_exec(cmd,
+                                               env=self.get_exec_env())
             return custom_eval
         
         # Get active controls custom menus
@@ -3000,7 +3029,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
 #        self.add_scale_options()
 #        self.add_text_options()
         self.add_target_control_field()
-#        self.add_custom_menus_field()
+        self.add_custom_menus_field()
         
         # Add layouts stretch
         self.left_layout.addStretch()
@@ -3011,7 +3040,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self._update_color_infos()
 #        self._update_text_infos()
         self._update_ctrls_infos()
-#        self._update_menus_infos()
+        self._update_menus_infos()
     
     def _update_shape_infos(self):
         self.event_disabled = True
@@ -3047,9 +3076,9 @@ class ItemOptionsWindow(QtGui.QMainWindow):
 #        
     def _update_ctrls_infos(self):
         self._populate_ctrl_list_widget()
-#    
-#    def _update_menus_infos(self):
-#        self._populate_menu_list_widget()
+    
+    def _update_menus_infos(self):
+        self._populate_menu_list_widget()
     
     def add_main_options(self):
         '''Add vertex count option
@@ -3294,34 +3323,34 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         btn_layout1.addWidget(btn)
         
         self.right_layout.addWidget(group_box)
-#    
-#    def add_custom_menus_field(self):
-#        '''Add custom menu management groupe box
-#        '''
-#        # Create group box
-#        group_box = QtGui.QGroupBox()
-#        group_box.setTitle('Menus')
-#        
-#        # Add layout
-#        layout = QtGui.QVBoxLayout(group_box)
-#        
-#        # Init list object
-#        self.menus_list = CallbackListWidget(callback=self.edit_menu_event)
-#        layout.addWidget(self.menus_list)
-#        
-#        # Add buttons
-#        btn_layout1 = QtGui.QHBoxLayout()
-#        layout.addLayout(btn_layout1)
-#        
-#        btn = CallbackButton(callback=self.new_menu_event)
-#        btn.setText('New')
-#        btn_layout1.addWidget(btn)
-#        
-#        btn = CallbackButton(callback=self.remove_menus_event)
-#        btn.setText('Remove')
-#        btn_layout1.addWidget(btn)
-#        
-#        self.right_layout.addWidget(group_box)
+    
+    def add_custom_menus_field(self):
+        '''Add custom menu management groupe box
+        '''
+        # Create group box
+        group_box = QtGui.QGroupBox()
+        group_box.setTitle('Menus')
+        
+        # Add layout
+        layout = QtGui.QVBoxLayout(group_box)
+        
+        # Init list object
+        self.menus_list = CallbackListWidget(callback=self.edit_menu_event)
+        layout.addWidget(self.menus_list)
+        
+        # Add buttons
+        btn_layout1 = QtGui.QHBoxLayout()
+        layout.addLayout(btn_layout1)
+        
+        btn = CallbackButton(callback=self.new_menu_event)
+        btn.setText('New')
+        btn_layout1.addWidget(btn)
+        
+        btn = CallbackButton(callback=self.remove_menus_event)
+        btn.setText('Remove')
+        btn_layout1.addWidget(btn)
+        
+        self.right_layout.addWidget(group_box)
         
     #===========================================================================
     # Events    
@@ -3579,7 +3608,9 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         name, cmd = self.picker_item.get_custom_menus()[item.index]
         
         # Open input window
-        name, cmd, ok = CustomMenuEditDialog.get(name=name, cmd=cmd)
+        name, cmd, ok = CustomMenuEditDialog.get(name=name,
+                                                 cmd=cmd,
+                                                 item=self.picker_item)
         if not (ok and name and cmd):
             return
         
@@ -3596,7 +3627,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''
         '''
         # Open input window
-        name, cmd, ok = CustomMenuEditDialog.get()
+        name, cmd, ok = CustomMenuEditDialog.get(item=self.picker_item)
         if not (ok and name and cmd):
             return
         
