@@ -2539,7 +2539,7 @@ class PointHandle(DefaultPolygon):
         '''
         self.setX(-1 * self.x())
     
-    def scale(self, x=1.0, y=1.0):
+    def scale_pos(self, x=1.0, y=1.0):
         '''Scale handle local position
         '''
         factor = QtGui.QTransform().scale(x, y)
@@ -2772,9 +2772,6 @@ class PickerItem(DefaultPolygon):
         points = self.get_default_handles()
         self.set_handles(points)
         
-#        # Update display
-#        self.update()
-        
     def set_handles(self, handles=list()):
         '''Set polygon handles points
         '''
@@ -2873,12 +2870,12 @@ class PickerItem(DefaultPolygon):
             paste_options_action.setEnabled(False)
         menu.addAction(paste_options_action)
         
-#        menu.addSeparator()
-#        
-#        move_back_action = QtGui.QAction("Move to back", None)
-#        move_back_action.triggered.connect(self.move_to_back_event)
-#        menu.addAction(move_back_action)
-#        
+        menu.addSeparator()
+        
+        move_back_action = QtGui.QAction("Move to back", None)
+        move_back_action.triggered.connect(self.move_to_back)
+        menu.addAction(move_back_action)
+        
         menu.addSeparator()
         
         remove_action = QtGui.QAction("Remove", None)
@@ -2921,7 +2918,7 @@ class PickerItem(DefaultPolygon):
     def get_exec_env(self):
         '''
         Will return proper environnement dictionnary for eval execs
-        (Will provide related controls as __CONTROLS__ variable)
+        (Will provide related controls as __CONTROLS__ and __NAMESPACE__ variables)
         '''
         # Init env
         env  = dict()
@@ -3002,7 +2999,59 @@ class PickerItem(DefaultPolygon):
         '''
         self.polygon.color = color
         self.update()
+    
+    def move_to_back(self):
+        '''Move picker item to background level behind other items
+        '''
+        scene = self.scene()
         
+        # Get scene items list
+        root_item = scene.items()[0]
+        print scene.items()
+        print "###self", self
+        print "## items", scene.items()[-1], scene.items()[-1].parent(), self.parent() 
+        
+        root_item.stackBefore(self)
+        print "#  items", scene.items()[-1]
+        
+        self.update()
+#
+#        # Put current item in list front
+#        items.remove(self)
+#        items.insert(0, self)
+#        
+#        # Init new scene
+#        scene = QtGui.QGraphicsScene()
+#        
+#        # Clear scene
+#        for item in items:
+#            if isinstance(item, PickerItem):
+#                continue
+#            scene.removeItem(item)
+#        
+#        
+#        
+#        # Update scene items
+#        for item in items:
+#            if not isinstance(item, PickerItem):
+#                continue
+#            
+#            # Remove item from scene
+#            pos = item.pos()
+#            scene.removeItem(item)
+#            print '## pos1', pos
+#            
+#            # Re-add to scene
+#            scene.addItem(item)
+#            item.setPos(pos)
+#            print '#  pos2', pos
+#            
+#            scene.addItem(self.polygon)
+#            
+#            for handle in self.handles:
+#                scene.addItem(handle)
+#            
+            
     def move_to_center(self):
         '''Move picker item to pos 0,0
         '''
@@ -3075,14 +3124,15 @@ class PickerItem(DefaultPolygon):
         '''Will open Paste option dialog window
         '''
         DataCopyDialog.options(self)
+        
     #===========================================================================
     # Transforms ---
-    def scale(self, x=1.0, y=1.0, world=False):
+    def scale_shape(self, x=1.0, y=1.0, world=False):
         '''Will scale shape based on axis x/y factors
         '''
         # Scale handles
         for handle in self.handles:
-            handle.scale(x, y)
+            handle.scale_pos(x, y)
         
         # Scale position
         if world:
@@ -3711,8 +3761,8 @@ class ItemOptionsWindow(QtGui.QMainWindow):
             kwargs['world'] = True
             
         # Apply scale
-        self.picker_item.scale(**kwargs) 
-#    
+        self.picker_item.scale_shape(**kwargs) 
+    
 #    def set_text_event(self, text=None):
 #        '''Will set polygon text to field 
 #        '''
