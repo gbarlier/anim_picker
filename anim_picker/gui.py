@@ -93,6 +93,43 @@ class QPointToQPointF(object): # must inherit from "object" to run __get_ !
 #===============================================================================
 # Custom Widgets ---
 #===============================================================================
+#class Test(QtCore.QObject):
+#    def __init__(self,
+#                 text,
+#                 parent=None):
+#        pass
+#    
+#class QActionWithOption(QtGui.QWidgetAction):
+#    def __init__(self,
+#                 text,
+#                 parent=None,
+#                 option_callback=None):
+#        QtGui.QWidgetAction.__init__(self, parent)
+#        
+#        self.text = text
+#        self.option_callback = option_callback
+#        self.setup()
+#        
+#    def setup(self):
+#        main_widget = QtGui.QWidget()
+#        self.main_layout = QtGui.QHBoxLayout(main_widget)
+#        
+#        action = QtGui.QWidgetAction(main_widget)
+#        action.setText(self.text)
+#        
+##        self.main_layout.addWidget(action.defaultWidget())
+#        
+#        self.setDefaultWidget(main_widget)
+#        return
+#        
+#        # add widget
+#        option_box = QtGui.QLabel(self.text)
+#        self.main_layout.addWidget(option_box)
+#        
+#        option_box = QtGui.QLabel('tutu')
+#        self.main_layout.addWidget(option_box)
+#        
+        
 class CallbackButton(QtGui.QPushButton):
     '''Dynamic callback button
     '''
@@ -214,20 +251,30 @@ class CallbackListWidget(QtGui.QListWidget):
      
      
 class CallbackCheckBoxWidget(QtGui.QCheckBox):
-    '''Dynamic List Widget object
+    '''Dynamic CheckBox Widget object
     '''
-    def __init__(self, callback=None, *args, **kwargs):
+    def __init__(self,
+                 callback=None,
+                 value=False,
+                 label=None,
+                 *args,
+                 **kwargs):
         QtGui.QCheckBox.__init__(self)
         self.callback = callback
         self.args = args
         self.kwargs = kwargs
+        
+        # Set init state
+        self.setCheckState(value)
+        self.setText(label or '')
         
         self.connect(self, QtCore.SIGNAL("toggled(bool)"), self.toggled_event)
 
     def toggled_event(self, value):
         if not self.callback:
             return
-        self.callback(value=value, *self.args, **self.kwargs) 
+        self.kwargs['value'] = value
+        self.callback(*self.args, **self.kwargs) 
         
 
 class CtrlListWidgetItem(QtGui.QListWidgetItem):
@@ -1845,7 +1892,147 @@ class PolygonShapeWidget(QtGui.QWidget):
 #        QtOpenGL.QGLWidget.doneCurrent(self)
 #        WGL.wglMakeCurrent(self._HDC, self._HRC)
 
-
+class State():
+    '''State object, for easy state handling
+    '''
+    def __init__(self, state):
+        self.state = state
+    def get(self):
+        return self.state
+    def set(self, state):
+        self.state = state
+        
+    
+class DataCopyDialog(QtGui.QDialog):
+    '''PickerItem data copying dialog handler
+    '''
+    __DATA__ = dict()
+    
+    __DO_POS__ = State(False)
+    __DO_COLOR__ = State(True)
+    __DO_HANDLES__ = State(True)
+    __DO_CTRLS__ = State(True)
+    __DO_MENUS__ = State(True)
+    
+    def __init__(self,
+                 parent=None):
+        QtGui.QDialog.__init__(self, parent)
+        self.apply = False
+        self.setup()
+        
+    def setup(self):
+        '''Build/Setup the dialog window
+        '''
+        self.setWindowTitle('Copy/Paste')
+        
+        # Add layout
+        self.main_layout = QtGui.QVBoxLayout(self)
+        
+        # Add data field options
+        attributes = dict()
+        attributes[DataCopyDialog.__DO_POS__] = 'Position'
+        attributes[DataCopyDialog.__DO_COLOR__] = 'Color'
+        attributes[DataCopyDialog.__DO_HANDLES__] = 'Handles'
+        attributes[DataCopyDialog.__DO_CTRLS__] = 'Controls'
+        attributes[DataCopyDialog.__DO_MENUS__] = 'Custom menus'
+     
+        for attr in attributes:
+            cb = CallbackCheckBoxWidget(callback=self.check_box_event,
+                                             value=attr.get(),
+                                             label=attributes[attr],
+                                             state_obj=attr)
+            self.main_layout.addWidget(cb)
+        
+        # Add buttons
+        btn_layout = QtGui.QHBoxLayout()
+        self.main_layout.addLayout(btn_layout)
+        
+        ok_btn = CallbackButton(callback=self.accept_event)
+        ok_btn.setText('Ok')
+        btn_layout.addWidget(ok_btn)
+        
+        cancel_btn = CallbackButton(callback=self.cancel_event)
+        cancel_btn.setText('Cancel')
+        btn_layout.addWidget(cancel_btn)
+    
+    def check_box_event(self, value=False, state_obj=None):
+        '''Update state object value on checkbox state change event
+        '''
+        state_obj.set(value)
+        
+    def accept_event(self):
+        '''Accept button event
+        '''
+        self.apply = True
+        
+        self.accept()
+        self.close()
+    
+    def cancel_event(self):
+        '''Cancel button event
+        '''
+        self.apply = False
+        self.close()
+        
+    @classmethod
+    def options(cls, item=None):
+        '''
+        Default method used to run the dialog input window
+        Will open the dialog window and return input texts.
+        '''
+        win = cls()
+        win.exec_()
+        win.raise_()
+        
+        if not win.apply:
+            return
+        win.set(item)
+    
+    @staticmethod
+    def set(item=None):
+        # Sanity check
+        assert isinstance(item, PickerItem), 'Item is not an PickerItem instance' 
+        assert DataCopyDialog.__DATA__, 'No stored data to paste'
+        
+        # Filter data keys to copy
+        keys = list()
+        if DataCopyDialog.__DO_POS__.get():
+            keys.append('position')
+        if DataCopyDialog.__DO_COLOR__.get():
+            keys.append('color')
+        if DataCopyDialog.__DO_HANDLES__.get():
+            keys.append('handles')
+        if DataCopyDialog.__DO_CTRLS__.get():
+            keys.append('controls')
+        if DataCopyDialog.__DO_MENUS__.get():
+            keys.append('menus')
+        
+        # Build valid data
+        data = dict()
+        for key in keys:
+            if not key in DataCopyDialog.__DATA__:
+                continue
+            data[key] = DataCopyDialog.__DATA__[key]
+        
+        # Get picker item data
+        item.set_data(data)
+    
+    @staticmethod
+    def get(item=None):
+        '''Will get and store data for specified item
+        '''
+        # Sanity check
+        assert isinstance(item, PickerItem), 'Item is not an PickerItem instance' 
+        
+        # Get picker item data
+        data = item.get_data()
+        
+        # Store data
+        DataCopyDialog.__DATA__ = data
+        
+        return data
+    
+    
 class CustomMenuEditDialog(QtGui.QDialog):
     def __init__(self,
                  parent=None,
@@ -1860,26 +2047,44 @@ class CustomMenuEditDialog(QtGui.QDialog):
         
         self.apply = False
         self.setup()
+    
+    def get_default_script(self):
+        '''
+        '''
+        text = '# Custom python script window\n'
+        text += '# Use __CONTROLS__ in your code to get picker item associated controls\n'
+        text += '# Use __NAMESPACE__ variable where proper namespace is needed\n'
+        return text
         
     def setup(self):
         '''Build/Setup the dialog window
         '''
+        self.setWindowTitle('Custom Menu')
+        
         # Add layout
         self.main_layout = QtGui.QVBoxLayout(self)
         
         # Add name line edit
+        name_layout = QtGui.QHBoxLayout(self)
+        
+        label = QtGui.QLabel()
+        label.setText('Name')
+        name_layout.addWidget(label)
+        
         self.name_widget = QtGui.QLineEdit()
         if self.name:
             self.name_widget.setText(self.name)
-        self.main_layout.addWidget(self.name_widget)
+        name_layout.addWidget(self.name_widget)
+        
+        self.main_layout.addLayout(name_layout)
         
         # Add cmd txt field
         self.cmd_widget = QtGui.QTextEdit()
         if self.cmd:
             self.cmd_widget.setText(self.cmd)
         else:
-            default_text = '# Use __CONTROLS__ in your code to get picker item associated controls'
-            self.cmd_widget.setText(default_text)
+            default_script = self.get_default_script()
+            self.cmd_widget.setText(default_script)
         self.main_layout.addWidget(self.cmd_widget)
         
         # Add buttons
@@ -1960,6 +2165,8 @@ class SearchAndReplaceDialog(QtGui.QDialog):
     def setup(self):
         '''Build/Setup the dialog window
         '''
+        self.setWindowTitle('Search And Replace')
+        
         # Add layout
         self.main_layout = QtGui.QVBoxLayout(self)
         
@@ -2029,6 +2236,9 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         self.setScene(QtGui.QGraphicsScene())
         self.scene().setSceneRect( -100,-100, 200, 200 )
         self.scene().get_namespace = self._scene_get_namespace
+        
+        # Scale view in Y for positive Y values (maya-like)
+        self.scale(1, -1)
         
         # Open GL render, to check...
         if __USE_OPENGL__:
@@ -2329,7 +2539,14 @@ class PointHandle(DefaultPolygon):
         '''
         self.setX(-1 * self.x())
     
-    
+    def scale(self, x=1.0, y=1.0):
+        '''Scale handle local position
+        '''
+        factor = QtGui.QTransform().scale(x, y)
+        self.setPos(self.pos() * factor)
+        self.update()
+        
+        
 class Polygon(DefaultPolygon):
     '''
     Picker controls visual graphic object
@@ -2423,7 +2640,7 @@ class Polygon(DefaultPolygon):
         # Selection boder color feedback
         if self.selected:
             # Set pen color
-            border_pen = QtGui.QPen(QtGui.QColor(0,255,0,255))
+            border_pen = QtGui.QPen(QtGui.QColor(30,255,30,255))
             painter.setPen(border_pen)
             
             # Paint boder
@@ -2636,6 +2853,26 @@ class PickerItem(DefaultPolygon):
         color_mirror_action.triggered.connect(self.mirror_color)
         menu.addAction(color_mirror_action)
         
+        menu.addSeparator()
+        
+        copy_action = QtGui.QAction("Copy", None)
+        copy_action.triggered.connect(self.copy_event)
+        menu.addAction(copy_action)
+        
+        paste_action = QtGui.QAction("Paste", None)
+        if DataCopyDialog.__DATA__:
+            paste_action.triggered.connect(self.past_event)
+        else:
+            paste_action.setEnabled(False)
+        menu.addAction(paste_action)
+        
+        paste_options_action = QtGui.QAction("Paste Options", None)
+        if DataCopyDialog.__DATA__:
+            paste_options_action.triggered.connect(self.past_option_event)
+        else:
+            paste_options_action.setEnabled(False)
+        menu.addAction(paste_options_action)
+        
 #        menu.addSeparator()
 #        
 #        move_back_action = QtGui.QAction("Move to back", None)
@@ -2691,6 +2928,7 @@ class PickerItem(DefaultPolygon):
         
         # Add controls vars
         env['__CONTROLS__'] = self.get_controls()
+        env['__NAMESPACE__'] = self.get_namespace()
         
         return env
     
@@ -2722,9 +2960,13 @@ class PickerItem(DefaultPolygon):
     def edit_options(self):
         '''Open Edit options window
         '''
-        # Init edit window 
-        if not self.edit_window:
-            self.edit_window = ItemOptionsWindow(parent=self.parentWidget(), picker_item=self)
+        # Delete old window 
+        if self.edit_window:
+            self.edit_window.close()
+            self.edit_window.deleteLater()
+            
+        # Init new window
+        self.edit_window = ItemOptionsWindow(parent=self.parentWidget(), picker_item=self)
         
         # Show window
         self.edit_window.show()
@@ -2819,6 +3061,36 @@ class PickerItem(DefaultPolygon):
             new_item.search_and_replace_controls()
         return new_item
     
+    def copy_event(self):
+        '''Store pickerItem data for copy/paste support
+        '''
+        DataCopyDialog.get(self)
+    
+    def past_event(self):
+        '''Apply previously stored pickerItem data
+        '''
+        DataCopyDialog.set(self)
+    
+    def past_option_event(self):
+        '''Will open Paste option dialog window
+        '''
+        DataCopyDialog.options(self)
+    #===========================================================================
+    # Transforms ---
+    def scale(self, x=1.0, y=1.0, world=False):
+        '''Will scale shape based on axis x/y factors
+        '''
+        # Scale handles
+        for handle in self.handles:
+            handle.scale(x, y)
+        
+        # Scale position
+        if world:
+            factor = QtGui.QTransform().scale(x, y)
+            self.setPos(self.pos() * factor)
+                
+        self.update() 
+        
     #===========================================================================
     # Controls handling ---
     def get_namespace(self):
@@ -2938,8 +3210,9 @@ class PickerItem(DefaultPolygon):
             self.set_color(color)
         
         # Set position
-        position = data.get('position', [0,0])
-        self.setPos(*position)
+        if 'position' in data:
+            position = data.get('position', [0,0])
+            self.setPos(*position)
         
         # Set handles
         if 'handles' in data:
@@ -2949,6 +3222,10 @@ class PickerItem(DefaultPolygon):
         if 'controls' in data:
             self.set_control_list(data['controls'])
         
+        # Set custom menus
+        if 'menus' in data:
+            self.set_custom_menus(data['menus'])
+            
     def get_data(self):
         '''Get picker item data in dictionary form
         '''
@@ -2970,7 +3247,11 @@ class PickerItem(DefaultPolygon):
         # Add controls data
         if self.get_controls():
             data['controls'] = self.get_controls()
-            
+        
+        # Add custom menus data
+        if self.get_controls():
+            data['menus'] = self.get_custom_menus()
+                
         return data
         
 
@@ -3026,7 +3307,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self.add_main_options()
         self.add_position_options()
         self.add_color_options()
-#        self.add_scale_options()
+        self.add_scale_options()
 #        self.add_text_options()
         self.add_target_control_field()
         self.add_custom_menus_field()
@@ -3248,54 +3529,54 @@ class ItemOptionsWindow(QtGui.QMainWindow):
 #        # Add to main layout
 #        self.left_layout.addWidget(group_box)
 #        
-#    def add_scale_options(self):
-#        '''Add scale group box options
-#        '''
-#        # Create group box
-#        group_box = QtGui.QGroupBox()
-#        group_box.setTitle('Scale')
-#        
-#        # Add layout
-#        layout = QtGui.QVBoxLayout(group_box)
-#        
-#        # Add edit check box
-#        self.worldspace_box = QtGui.QCheckBox()
-#        self.worldspace_box.setText('World space')
-#        
-#        layout.addWidget(self.worldspace_box)
-#        
-#        # Add alpha spin box
-#        spin_layout = QtGui.QHBoxLayout()
-#        layout.addLayout(spin_layout)
-#        
-#        label = QtGui.QLabel()
-#        label.setText('Factor')
-#        spin_layout.addWidget(label)
-#        
-#        self.scale_sb = QtGui.QDoubleSpinBox()
-#        self.scale_sb.setValue(1.1)
-#        self.scale_sb.setSingleStep(0.05)
-#        spin_layout.addWidget(self.scale_sb)
-#        
-#        # Add scale buttons
-#        btn_layout = QtGui.QHBoxLayout()
-#        layout.addLayout(btn_layout)
-#        
-#        btn = CallbackButton(callback=self.scale_event, x=True)
-#        btn.setText('X')
-#        btn_layout.addWidget(btn)
-#        
-#        btn = CallbackButton(callback=self.scale_event, y=True)
-#        btn.setText('Y')
-#        btn_layout.addWidget(btn)
-#        
-#        btn = CallbackButton(callback=self.scale_event, x=True, y=True)
-#        btn.setText('XY')
-#        btn_layout.addWidget(btn)
-#        
-#        # Add to main left layout
-#        self.left_layout.addWidget(group_box)
-#        
+    def add_scale_options(self):
+        '''Add scale group box options
+        '''
+        # Create group box
+        group_box = QtGui.QGroupBox()
+        group_box.setTitle('Scale')
+        
+        # Add layout
+        layout = QtGui.QVBoxLayout(group_box)
+        
+        # Add edit check box
+        self.worldspace_box = QtGui.QCheckBox()
+        self.worldspace_box.setText('World space')
+        
+        layout.addWidget(self.worldspace_box)
+        
+        # Add alpha spin box
+        spin_layout = QtGui.QHBoxLayout()
+        layout.addLayout(spin_layout)
+        
+        label = QtGui.QLabel()
+        label.setText('Factor')
+        spin_layout.addWidget(label)
+        
+        self.scale_sb = QtGui.QDoubleSpinBox()
+        self.scale_sb.setValue(1.1)
+        self.scale_sb.setSingleStep(0.05)
+        spin_layout.addWidget(self.scale_sb)
+        
+        # Add scale buttons
+        btn_layout = QtGui.QHBoxLayout()
+        layout.addLayout(btn_layout)
+        
+        btn = CallbackButton(callback=self.scale_event, x=True)
+        btn.setText('X')
+        btn_layout.addWidget(btn)
+        
+        btn = CallbackButton(callback=self.scale_event, y=True)
+        btn.setText('Y')
+        btn_layout.addWidget(btn)
+        
+        btn = CallbackButton(callback=self.scale_event, x=True, y=True)
+        btn.setText('XY')
+        btn_layout.addWidget(btn)
+        
+        # Add to main left layout
+        self.left_layout.addWidget(group_box)
+        
     def add_target_control_field(self):
         '''Add target control association group box
         '''
@@ -3412,25 +3693,25 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         # Update color
         self.picker_item.set_color(color)
         
-#    def scale_event(self, x=False, y=False):
-#        '''Will scale polygon on specified axis based on scale factor value from spin box
-#        '''
-#        # Get scale factor value
-#        scale_factor = self.scale_sb.value()
-#        
-#        # Build kwargs
-#        kwargs = {'x_factor':1.0, 'y_factor':1.0}
-#        if x:
-#            kwargs['x_factor'] = scale_factor
-#        if y:
-#            kwargs['y_factor'] = scale_factor
-#        
-#        # Check space
-#        if self.worldspace_box.isChecked():
-#            kwargs['world'] = True
-#            
-#        # Apply scale
-#        self.picker_item.scale(**kwargs) 
+    def scale_event(self, x=False, y=False):
+        '''Will scale polygon on specified axis based on scale factor value from spin box
+        '''
+        # Get scale factor value
+        scale_factor = self.scale_sb.value()
+        
+        # Build kwargs
+        kwargs = {'x':1.0, 'y':1.0}
+        if x:
+            kwargs['x'] = scale_factor
+        if y:
+            kwargs['y'] = scale_factor
+        
+        # Check space
+        if self.worldspace_box.isChecked():
+            kwargs['world'] = True
+            
+        # Apply scale
+        self.picker_item.scale(**kwargs) 
 #    
 #    def set_text_event(self, text=None):
 #        '''Will set polygon text to field 
