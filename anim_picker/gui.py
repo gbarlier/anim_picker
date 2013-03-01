@@ -2764,7 +2764,6 @@ class PickerItem(DefaultPolygon):
         Change/edit the number of points for the polygon
         (that will reset the shape)
         '''
-        print 'value', value
         # Update point count
         self.point_count = value
         
@@ -2777,7 +2776,8 @@ class PickerItem(DefaultPolygon):
         '''
         # Remove existing handles
         for handle in self.handles:
-            self.scene().removeItem(handle)
+            handle.setParent(None)
+            handle.deleteLater()
         
         # Parse input type
         new_handles = list()
@@ -3000,21 +3000,45 @@ class PickerItem(DefaultPolygon):
         self.polygon.color = color
         self.update()
     
+    def move_to_front(self):
+        '''Move picker item to scene front
+        '''
+        # Get current scene
+        scene = self.scene()
+        
+        # Move to temp scene
+        tmp_scene = QtGui.QGraphicsScene()
+        tmp_scene.addItem(self)
+        
+        # Add to current scene (will be put on top)
+        scene.addItem(self)
+        
+        # Clean
+        tmp_scene.deleteLater()
+        
     def move_to_back(self):
         '''Move picker item to background level behind other items
         '''
-        scene = self.scene()
+        # Filter scene picker Items
+        picker_items = list()
+        for item in self.scene().items():
+            if not isinstance(item, PickerItem):
+                continue
+            picker_items.append(item)
+            
+        # Reverse list since items are returned front to back
+        picker_items.reverse()
         
-        # Get scene items list
-        root_item = scene.items()[0]
-        print scene.items()
-        print "###self", self
-        print "## items", scene.items()[-1], scene.items()[-1].parent(), self.parent() 
+        # Move current item to front of list (back)
+        picker_items.remove(self)
+        picker_items.insert(0, self)
         
-        root_item.stackBefore(self)
-        print "#  items", scene.items()[-1]
+        # Move each item in proper oder to front of scene
+        # That will add them in the proper order to the scene
+        for item in picker_items:
+            item.move_to_front()
+            
         
-        self.update()
 #
 #        # Put current item in list front
 #        items.remove(self)
