@@ -3410,7 +3410,8 @@ class MainDockWindow(QtGui.QDockWidget):
         '''
         index = 0
         for i in range(len(self.char_selector_cb.nodes)):
-            if not self.char_selector_cb.nodes[i].name == data_node: 
+            node = self.char_selector_cb.nodes[i]
+            if not data_node == node.name or data_node == node: 
                 continue
             index = i
             break
