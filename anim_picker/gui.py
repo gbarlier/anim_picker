@@ -611,6 +611,8 @@ class DataCopyDialog(QtGui.QDialog):
     __DO_POS__ = State(False)
     __DO_COLOR__ = State(True)
     __DO_HANDLES__ = State(True)
+    __DO_TEXT__ = State(True)
+    __DO_TEXT_COLOR__ = State(True)
     __DO_CTRLS__ = State(True)
     __DO_MENUS__ = State(True)
     
@@ -633,8 +635,10 @@ class DataCopyDialog(QtGui.QDialog):
         attributes[DataCopyDialog.__DO_POS__] = 'Position'
         attributes[DataCopyDialog.__DO_COLOR__] = 'Color'
         attributes[DataCopyDialog.__DO_HANDLES__] = 'Handles'
-        attributes[DataCopyDialog.__DO_CTRLS__] = 'Controls'
-        attributes[DataCopyDialog.__DO_MENUS__] = 'Custom menus'
+        attributes[DataCopyDialog.__DO_TEXT__] = 'Custom menus'
+        attributes[DataCopyDialog.__DO_TEXT_COLOR__] = 'Custom menus'
+        attributes[DataCopyDialog.__DO_CTRLS__] = 'Text'
+        attributes[DataCopyDialog.__DO_MENUS__] = 'Text Color'
      
         for attr in attributes:
             cb = CallbackCheckBoxWidget(callback=self.check_box_event,
@@ -702,6 +706,11 @@ class DataCopyDialog(QtGui.QDialog):
             keys.append('color')
         if DataCopyDialog.__DO_HANDLES__.get():
             keys.append('handles')
+        if DataCopyDialog.__DO_TEXT__.get():
+            keys.append('text')
+            keys.append('text_size')
+        if DataCopyDialog.__DO_TEXT_COLOR__.get():
+            keys.append('text_color')
         if DataCopyDialog.__DO_CTRLS__.get():
             keys.append('controls')
         if DataCopyDialog.__DO_MENUS__.get():
@@ -2408,7 +2417,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
     '''Child window to edit shape options
     '''
     __OBJ_NAME__ = 'ctrl_picker_edit_window'
-    __TITLE__ = 'Shape Options'
+    __TITLE__ = 'Picker Item Options'
     
     #-----------------------------------------------------------------------------------------------
     #    constructor
@@ -2738,6 +2747,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         
         # Init list object
         self.control_list = CallbackListWidget(callback=self.edit_ctrl_name_event)
+        self.control_list.setToolTip('Associated controls/objects that will be selected when clicking picker item')
         layout.addWidget(self.control_list)
         
         # Add buttons
@@ -2746,10 +2756,12 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         
         btn = CallbackButton(callback=self.add_selected_controls_event)
         btn.setText('Add Selection')
+        btn.setMinimumWidth(75)
         btn_layout1.addWidget(btn)
         
         btn = CallbackButton(callback=self.remove_controls_event)
         btn.setText('Remove')
+        btn.setMinimumWidth(75)
         btn_layout1.addWidget(btn)
         
         self.right_layout.addWidget(group_box)
@@ -2759,13 +2771,14 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''
         # Create group box
         group_box = QtGui.QGroupBox()
-        group_box.setTitle('Menus')
+        group_box.setTitle('Custom Menus')
         
         # Add layout
         layout = QtGui.QVBoxLayout(group_box)
         
         # Init list object
         self.menus_list = CallbackListWidget(callback=self.edit_menu_event)
+        self.menus_list.setToolTip('Custom action menus that will be accessible through right clicking the picker item in animation mode')
         layout.addWidget(self.menus_list)
         
         # Add buttons
@@ -2774,10 +2787,12 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         
         btn = CallbackButton(callback=self.new_menu_event)
         btn.setText('New')
+        btn.setMinimumWidth(60)
         btn_layout1.addWidget(btn)
         
         btn = CallbackButton(callback=self.remove_menus_event)
         btn.setText('Remove')
+        btn.setMinimumWidth(60)
         btn_layout1.addWidget(btn)
         
         self.right_layout.addWidget(group_box)
