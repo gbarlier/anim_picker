@@ -142,6 +142,16 @@ class DataNode():
         
         return data
     
+    def countains(self, node):
+        '''Will return True if data_node contains selected node in related controls data
+        '''
+        for tab_data in self.data['tabs']:
+            for item_data in tab_data[1]:
+                controls = item_data.get('controls', list())
+                if controls.count(node):
+                    return True
+        return False
+    
     
 def get_nodes():
     '''Return data nodes found in scene
@@ -155,4 +165,31 @@ def get_nodes():
     data_nodes.sort()
     return data_nodes
     
+def get_node_for_object(item):
+    '''Will try to return related picker data_node for specified object
+    '''
+    namespaces = list()
+    
+    # No namespace case
+    if not cmds.referenceQuery(item, inr=True):
+        namespaces.append(':')
+    
+    # Referenced node case
+    else:
+        prev_namespace = ':'
+        for namespace in item.split(':')[:-1]:
+            namespace = '%s%s:'%(prev_namespace, namespace)
+            namespaces.append(namespace)
+    
+    # Parse namespaces
+    for namespace in namespaces:
+        for data_node in cmds.ls('%s*.%s'%(namespace, DataNode.__TAG__), o=True) or list():
+            data_node = DataNode(data_node)
+            if data_node.countains(item.replace(namespace[1:], '')):
+                return data_node      
+    return None
+        
+        
+        
+        
     

@@ -291,8 +291,10 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
     
     def __init__(self,
                  parent,
+                 main_window=None,
                  *args, **kwargs):
         QtGui.QTabWidget.__init__(self, parent, *args, **kwargs)
+        self.main_window = main_window
         
     def contextMenuEvent(self, event):
         '''Right click menu options
@@ -383,8 +385,8 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         '''Return data_node namespace
         '''
         # Proper parent
-        if isinstance(self.parent(), MainDockWindow):
-            return self.parent().get_current_namespace()
+        if self.main_window and isinstance(self.main_window, MainDockWindow):
+            return self.main_window.get_current_namespace()
         
         return None
         
@@ -2251,6 +2253,7 @@ class PickerItem(DefaultPolygon):
         nodes = list()
         for node in self.controls:
             nodes.append('%s:%s'%(namespace, node))
+
         return nodes
     
     def append_control(self, ctrl):
@@ -3159,7 +3162,7 @@ class MainDockWindow(QtGui.QDockWidget):
         layout.addWidget(box)
         
         # Add layout
-        box_layout = QtGui.QHBoxLayout(box)
+        box_layout = QtGui.QVBoxLayout(box)
         
         # Add combo box
         self.char_selector_cb = CallbackComboBox(callback=self.selector_change_event)
@@ -3168,12 +3171,26 @@ class MainDockWindow(QtGui.QDockWidget):
         # Init combo box data
         self.char_selector_cb.nodes = list()
         
-        # Add Refresh  button
+        # Add option buttons
+        btns_layout = QtGui.QHBoxLayout(box)
+        box_layout.addLayout(btns_layout)
+        
+        # Add horizont spacer
+        spacer = QtGui.QSpacerItem(10,0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        btns_layout.addItem(spacer)
+        
+        # Load from node
+        if not __EDIT_MODE__.get():
+            self.char_from_node_btn = CallbackButton(callback=self.load_from_sel_node)
+            self.char_from_node_btn.setText('Load from selection')
+#            self.char_from_node_btn.setFixedWidth(60)
+            btns_layout.addWidget(self.char_from_node_btn)
+        
+        # Refresh button
         self.char_refresh_btn = CallbackButton(callback=self.refresh)
         self.char_refresh_btn.setText('Refresh')
-        self.char_refresh_btn.setFixedWidth(55)
-        
-        box_layout.addWidget(self.char_refresh_btn)
+#        self.char_refresh_btn.setFixedWidth(60)
+        btns_layout.addWidget(self.char_refresh_btn)
         
         # Edit buttons
         self.new_char_btn = None
@@ -3184,14 +3201,14 @@ class MainDockWindow(QtGui.QDockWidget):
             self.new_char_btn.setText('New')
             self.new_char_btn.setFixedWidth(40)
         
-            box_layout.addWidget(self.new_char_btn)
+            btns_layout.addWidget(self.new_char_btn)
             
             # Add Save  button
             self.save_char_btn = CallbackButton(callback=self.save_character)
             self.save_char_btn.setText('Save')
             self.save_char_btn.setFixedWidth(40)
         
-            box_layout.addWidget(self.save_char_btn)
+            btns_layout.addWidget(self.save_char_btn)
             
         # Create character picture widget
         self.pic_widget = SnapshotWidget()
@@ -3200,7 +3217,7 @@ class MainDockWindow(QtGui.QDockWidget):
     def add_tab_widget(self, name = 'default'):
         '''Add control display field
         '''
-        self.tab_widget = ContextMenuTabWidget(self)
+        self.tab_widget = ContextMenuTabWidget(self, main_window=self)
         self.main_vertical_layout.addWidget(self.tab_widget)
         
         # Add default first tab
@@ -3318,6 +3335,15 @@ class MainDockWindow(QtGui.QDockWidget):
         
         # Force view resize
         self.tab_widget.fit_contents()
+    
+    def load_from_sel_node(self):
+        '''Will try to load character for selected node
+        '''
+        sel = cmds.ls(sl=True)
+        if not sel:
+            return
+        data_node = node.get_node_for_object(sel[0])
+        self.make_node_active(data_node.name)
         
     def make_node_active(self, data_node):
         '''Will set character selector to specified data_node
@@ -3396,6 +3422,9 @@ class MainDockWindow(QtGui.QDockWidget):
         
         # Fit content
         self.tab_widget.fit_contents()
+        
+        # Update selection states
+        self.selection_change_event()
         
     def save_character(self):
         '''Save data to current selected data_node
