@@ -326,7 +326,10 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         '''Will resize views content to match views size
         '''
         for i in range(self.count()):
-            self.widget(i).fit_scene_content()
+            widget = self.widget(i)
+            if not isinstance(widget, GraphicViewWidget):
+                continue 
+            widget.fit_scene_content()
         
     def rename_event(self, event):
         '''Will open dialog to rename tab
@@ -1066,7 +1069,11 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         # Disable scroll bars 
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff);
         self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff);
-
+        
+        # Set background color
+        brush = QtGui.QBrush(QtGui.QColor(50,50,50,255))
+        self.setBackgroundBrush(brush)
+        
     def mousePressEvent(self, event):
         '''Overload to clear selection on empty area
         '''
@@ -1188,7 +1195,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
     def fit_scene_content(self):
         '''Will fit scene content to view, by scaling it
         '''
-        margin = 10
+        margin = 5
         self.fitInView(-margin, -margin,
                        self.scene().width() +margin, self.scene().height() +margin,
                        mode=QtCore.Qt.KeepAspectRatio)
@@ -1532,7 +1539,7 @@ class Polygon(DefaultPolygon):
     (inherits from QtGui.QGraphicsObject rather than QtGui.QGraphicsItem for signal support)
     '''
     __DEFAULT_COLOR__ = QtGui.QColor(200,200,200,180)
-    __DEFAULT_SELECT_COLOR__ = QtGui.QColor(30,200,30,180)
+    __DEFAULT_SELECT_COLOR__ = QtGui.QColor(0,30,0,180)
     
     def __init__(self,
                  parent=None, # QGraphicItem
@@ -1595,14 +1602,22 @@ class Polygon(DefaultPolygon):
         path = self.shape()
         
         # Set node background color
-        if not self._hovered:
-            brush = QtGui.QBrush(self.color)
-        else:
-            brush = QtGui.QBrush(self.color.lighter(130))
+        color = self.color
+        if self._hovered:
+            color = color.lighter(130)
+        brush = QtGui.QBrush(color)
         
         # Paint background
         painter.fillPath(path, brush)
         
+        # Add selected background color feedback
+        if self.selected:
+            color = QtGui.QColor(255,255,255, 50)
+            brush = QtGui.QBrush(color)
+#            brush.setStyle(QtCore.Qt.Dense4Pattern)
+            
+            painter.fillPath(path, brush)
+            
         # Selection boder color feedback
         if self.selected:
             # Set pen color
