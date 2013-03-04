@@ -595,10 +595,18 @@ class SnapshotWidget(BackgroundWidget):
 class State():
     '''State object, for easy state handling
     '''
-    def __init__(self, state):
+    def __init__(self, state, name=False):
         self.state = state
+        self.name = name
+        
+    def __lt__(self, other):
+        '''Override for "sort" function
+        '''
+        return self.name < other.name
+    
     def get(self):
         return self.state
+    
     def set(self, state):
         self.state = state
         
@@ -608,13 +616,23 @@ class DataCopyDialog(QtGui.QDialog):
     '''
     __DATA__ = dict()
     
-    __DO_POS__ = State(False)
-    __DO_COLOR__ = State(True)
-    __DO_HANDLES__ = State(True)
-    __DO_TEXT__ = State(True)
-    __DO_TEXT_COLOR__ = State(True)
-    __DO_CTRLS__ = State(True)
-    __DO_MENUS__ = State(True)
+    __STATES__ = list()
+    __DO_POS__ = State(False, 'position')
+    __STATES__.append(__DO_POS__)
+    __DO_COLOR__ = State(True, 'color')
+    __STATES__.append(__DO_COLOR__)
+    __DO_HANDLES__ = State(True, 'handles')
+    __STATES__.append(__DO_HANDLES__)
+    __DO_TEXT__ = State(True, 'text')
+    __STATES__.append(__DO_TEXT__)
+    __DO_TEXT_SIZE__ = State(True, 'text_size')
+    __STATES__.append(__DO_TEXT_SIZE__)
+    __DO_TEXT_COLOR__ = State(True, 'text_color')
+    __STATES__.append(__DO_TEXT_COLOR__)
+    __DO_CTRLS__ = State(True, 'controls')
+    __STATES__.append(__DO_CTRLS__)
+    __DO_MENUS__ = State(True, 'menus')
+    __STATES__.append(__DO_MENUS__)
     
     def __init__(self,
                  parent=None):
@@ -631,20 +649,11 @@ class DataCopyDialog(QtGui.QDialog):
         self.main_layout = QtGui.QVBoxLayout(self)
         
         # Add data field options
-        attributes = dict()
-        attributes[DataCopyDialog.__DO_POS__] = 'Position'
-        attributes[DataCopyDialog.__DO_COLOR__] = 'Color'
-        attributes[DataCopyDialog.__DO_HANDLES__] = 'Handles'
-        attributes[DataCopyDialog.__DO_TEXT__] = 'Custom menus'
-        attributes[DataCopyDialog.__DO_TEXT_COLOR__] = 'Custom menus'
-        attributes[DataCopyDialog.__DO_CTRLS__] = 'Text'
-        attributes[DataCopyDialog.__DO_MENUS__] = 'Text Color'
-     
-        for attr in attributes:
+        for state in self.__STATES__:
             cb = CallbackCheckBoxWidget(callback=self.check_box_event,
-                                             value=attr.get(),
-                                             label=attributes[attr],
-                                             state_obj=attr)
+                                             value=state.get(),
+                                             label=state.name.capitalize().replace('_', ' '),
+                                             state_obj=state)
             self.main_layout.addWidget(cb)
         
         # Add buttons
@@ -658,7 +667,7 @@ class DataCopyDialog(QtGui.QDialog):
         cancel_btn = CallbackButton(callback=self.cancel_event)
         cancel_btn.setText('Cancel')
         btn_layout.addWidget(cancel_btn)
-    
+        
     def check_box_event(self, value=False, state_obj=None):
         '''Update state object value on checkbox state change event
         '''
@@ -700,21 +709,23 @@ class DataCopyDialog(QtGui.QDialog):
         
         # Filter data keys to copy
         keys = list()
-        if DataCopyDialog.__DO_POS__.get():
-            keys.append('position')
-        if DataCopyDialog.__DO_COLOR__.get():
-            keys.append('color')
-        if DataCopyDialog.__DO_HANDLES__.get():
-            keys.append('handles')
-        if DataCopyDialog.__DO_TEXT__.get():
-            keys.append('text')
-            keys.append('text_size')
-        if DataCopyDialog.__DO_TEXT_COLOR__.get():
-            keys.append('text_color')
-        if DataCopyDialog.__DO_CTRLS__.get():
-            keys.append('controls')
-        if DataCopyDialog.__DO_MENUS__.get():
-            keys.append('menus')
+        for state in DataCopyDialog.__STATES__:
+            if not state.get():
+                continue
+            keys.append(state.name)
+#        if DataCopyDialog.__DO_COLOR__.get():
+#            keys.append('color')
+#        if DataCopyDialog.__DO_HANDLES__.get():
+#            keys.append('handles')
+#        if DataCopyDialog.__DO_TEXT__.get():
+#            keys.append('text')
+#            keys.append('text_size')
+#        if DataCopyDialog.__DO_TEXT_COLOR__.get():
+#            keys.append('text_color')
+#        if DataCopyDialog.__DO_CTRLS__.get():
+#            keys.append('controls')
+#        if DataCopyDialog.__DO_MENUS__.get():
+#            keys.append('menus')
         
         # Build valid data
         data = dict()
