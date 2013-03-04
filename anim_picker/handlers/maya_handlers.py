@@ -10,6 +10,10 @@ def get_flattened_nodes(nodes):
     
     # Parse nodes
     for node in nodes:
+        # Skip if not doesn't exists 
+        if not cmds.objExists(node):
+            continue
+        
         # Object set type
         if cmds.nodeType(node) == 'objectSet':
             content = cmds.sets(node, q=True, no=True)
@@ -22,24 +26,19 @@ def get_flattened_nodes(nodes):
             
             continue
         
-        # Skip if not doesn't exists 
-        if not cmds.objExists(node):
-            continue
-        
         # Append not to results
         results.append(node)
         
     return results
 
-def select_nodes(nodes, namespace=None, modifier=None, _add=False):
+def select_nodes(nodes, namespace=None, modifier=None):
     '''Select maya node handler with specific modifier behavior
     '''
-    # Clear selection
-    if not (modifier or _add):
-        cmds.select(cl=True)
-    
     # Parse nodes
+    filtered_nodes = list()
+    print '### input nodes',nodes
     for node in nodes:
+        print '##1 node', node
         # Add namespace to node name
         if namespace:
             node = '%s:%s'%(namespace, node)
@@ -51,21 +50,34 @@ def select_nodes(nodes, namespace=None, modifier=None, _add=False):
         
         # Set case
         if cmds.nodeType(node) == 'objectSet':
-            content = cmds.sets(node, q=True, no=True)
-            select_nodes(content, modifier=modifier, _add=True)
+            content = get_flattened_nodes([node])
+            filtered_nodes.extend(content)
             continue
         
-        # Control case (toggle)
-        if modifier == 'control':
-            cmds.select(node, tgl=True)
-            
-        # Alt case (remove)
-        elif modifier == 'alt':
-            cmds.select(node, d=True)
+        filtered_nodes.append(node)
+    
+    # Stop here on empty list
+    if not filtered_nodes:
+        return
+    
+    # Remove duplicates
+    filtered_nodes = list(set(filtered_nodes))
+    
+    # No modifier case selection
+    if not modifier:
+        return cmds.select(filtered_nodes)
         
-        # Shit case (add) and none
-        else:
-            cmds.select(node, add=True)
+    # Control case (toggle)
+    if modifier == 'control':
+        return cmds.select(filtered_nodes, tgl=True)
+        
+    # Alt case (remove)
+    elif modifier == 'alt':
+        return cmds.select(filtered_nodes, d=True)
+    
+    # Shift case (add) and none
+    else:
+        return cmds.select(filtered_nodes, add=True)
             
 def reset_node_attributes(node, attr='rigBindPose'):
     '''Will reset attribute to stored values

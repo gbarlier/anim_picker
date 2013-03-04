@@ -1885,8 +1885,6 @@ class PickerItem(DefaultPolygon):
         # Run selection on left mouse button event
         if event.buttons() == QtCore.Qt.LeftButton:
             self.mouse_press_select_event(event)
-        
-        return DefaultPolygon.mousePressEvent(self, event)
     
     def mouse_press_select_event(self, event):
         '''
