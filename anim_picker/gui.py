@@ -1885,6 +1885,11 @@ class PickerItem(DefaultPolygon):
         # Run selection on left mouse button event
         if event.buttons() == QtCore.Qt.LeftButton:
             self.mouse_press_select_event(event)
+            
+        # Set focus to maya window
+        maya_window = self.get_maya_window()
+        if maya_window:
+            maya_window.setFocus(True)
     
     def mouse_press_select_event(self, event):
         '''
@@ -3387,6 +3392,9 @@ class MainDockWindow(QtGui.QDockWidget):
         
         # Force view resize
         self.tab_widget.fit_contents()
+        
+        # Set focus on view
+        self.tab_widget.currentWidget().setFocus(True)
     
     def load_from_sel_node(self):
         '''Will try to load character for selected node
