@@ -17,9 +17,8 @@ import node
 from handlers import python_handlers
 from handlers import maya_handlers
 
-import handlers
-from anim_picker.handlers import __EDIT_MODE__
-from anim_picker.handlers import __SELECTION__
+from handlers import __EDIT_MODE__
+from handlers import __SELECTION__
 
 __USE_OPENGL__ = False # seems to conflicts with maya viewports...
 
@@ -287,8 +286,6 @@ class CtrlListWidgetItem(QtGui.QListWidgetItem):
 class ContextMenuTabWidget(QtGui.QTabWidget):
     '''Custom tab widget with specific context menu support
     '''
-    __EDIT_MODE__ = handlers.__EDIT_MODE__
-    
     def __init__(self,
                  parent,
                  main_window=None,
@@ -481,8 +478,6 @@ class BackgroundWidget(QtGui.QLabel):
 class SnapshotWidget(BackgroundWidget):
     '''Top right character "snapshot" widget, to display character picture
     '''
-    __EDIT_MODE__ = handlers.__EDIT_MODE__
-    
     def __init__(self,
                  parent=None):
         BackgroundWidget.__init__(self, parent )
@@ -716,19 +711,6 @@ class DataCopyDialog(QtGui.QDialog):
             if not state.get():
                 continue
             keys.append(state.name)
-#        if DataCopyDialog.__DO_COLOR__.get():
-#            keys.append('color')
-#        if DataCopyDialog.__DO_HANDLES__.get():
-#            keys.append('handles')
-#        if DataCopyDialog.__DO_TEXT__.get():
-#            keys.append('text')
-#            keys.append('text_size')
-#        if DataCopyDialog.__DO_TEXT_COLOR__.get():
-#            keys.append('text_color')
-#        if DataCopyDialog.__DO_CTRLS__.get():
-#            keys.append('controls')
-#        if DataCopyDialog.__DO_MENUS__.get():
-#            keys.append('menus')
         
         # Build valid data
         data = dict()
@@ -1071,7 +1053,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff);
         
         # Set background color
-        brush = QtGui.QBrush(QtGui.QColor(50,50,50,255))
+        brush = QtGui.QBrush(QtGui.QColor(70,70,70,255))
         self.setBackgroundBrush(brush)
         
     def mousePressEvent(self, event):
@@ -1865,16 +1847,6 @@ class PickerItem(DefaultPolygon):
     
     #===========================================================================
     # Mouse events ---
-#    def mousePressEvent(self, event):
-#        '''Event called on mouse press
-#        '''
-#        # Abort on any thing ells than left mouse button
-#        if not event.button() == QtCore.Qt.LeftButton:
-#            return
-#        
-#        # Select related nodes
-#        self.select_associated_controls(modifier)
-#        
     def mousePressEvent(self, event):
         '''Event called on mouse press
         '''
@@ -1887,7 +1859,7 @@ class PickerItem(DefaultPolygon):
             self.mouse_press_select_event(event)
             
         # Set focus to maya window
-        maya_window = self.get_maya_window()
+        maya_window = get_maya_window()
         if maya_window:
             maya_window.setFocus(True)
     

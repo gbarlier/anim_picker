@@ -36,9 +36,7 @@ def select_nodes(nodes, namespace=None, modifier=None):
     '''
     # Parse nodes
     filtered_nodes = list()
-    print '### input nodes',nodes
     for node in nodes:
-        print '##1 node', node
         # Add namespace to node name
         if namespace:
             node = '%s:%s'%(namespace, node)
