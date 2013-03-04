@@ -1027,7 +1027,7 @@ class AxedGraphicsScene(QtGui.QGraphicsScene):
         line = QtCore.QLineF(0, -self.___DEFAULT_SIZE__,
                              0, self.___DEFAULT_SIZE__)
         return line
-    
+
         
 class GraphicViewWidget(QtGui.QGraphicsView):
     '''Graphic view widget that display the "polygons" picker items 
@@ -1878,16 +1878,19 @@ class PickerItem(DefaultPolygon):
     def mousePressEvent(self, event):
         '''Event called on mouse press
         '''
-        # Edit behavior event
+        # Simply run default event in edit mode, and exit
         if __EDIT_MODE__.get():
             return DefaultPolygon.mousePressEvent(self, event)
+
+        # Run selection on left mouse button event
+        if event.buttons() == QtCore.Qt.LeftButton:
+            self.mouse_press_select_event(event)
+        
+        return DefaultPolygon.mousePressEvent(self, event)
     
-        # Default event
-        return self.mouse_press_default_event(event)
-    
-    def mouse_press_default_event(self, event):
+    def mouse_press_select_event(self, event):
         '''
-        Default event on mouse press.
+        Default select event on mouse press.
         Will select associated controls
         '''
         # Get keyboard modifier
@@ -2019,11 +2022,20 @@ class PickerItem(DefaultPolygon):
 #        menu.addAction(reset_action)
                         
         # Add custom actions
-        self._add_custom_action_menus(menu)
+        actions = self._get_custom_action_menus()
+        for action in actions:
+            menu.addAction(action)
+        
+        # Abort on empty menu
+        if menu.isEmpty():
+            return
         
         # Open context menu under mouse
-        if not menu.isEmpty():
-            menu.exec_(self.mapToGlobal(event.pos()))
+        offseted_pos = event.pos() + QtCore.QPointF(5,0) # offset position to prevent accidental mouse release on menu 
+        scene_pos = self.mapToScene(offseted_pos)        
+        view_pos = self.parent().mapFromScene(scene_pos)
+        screen_pos = self.parent().mapToGlobal(view_pos)
+        menu.exec_(screen_pos)
     
     def get_exec_env(self):
         '''
@@ -2039,7 +2051,11 @@ class PickerItem(DefaultPolygon):
         
         return env
     
-    def _add_custom_action_menus(self, menu):
+    def _get_custom_action_menus(self):
+        # Init action list to fix loop problem where qmenu only show last action
+        # when using the same variable name ...
+        actions = list() 
+        
         # Define custom exec cmd wrapper
         def wrapper(cmd):
             def custom_eval(*args, **kwargs):
@@ -2050,18 +2066,15 @@ class PickerItem(DefaultPolygon):
         # Get active controls custom menus
         custom_data = self.get_custom_menus()
         if not custom_data:
-            return
-        
-        # Init action list to fix loop problem where qmenu only show last action
-        # when using the same variable name ...
-        actions = list() 
+            return actions
         
         # Build menu
         for i in range(len(custom_data)):
             actions.append(QtGui.QAction(custom_data[i][0], None))
             actions[i].triggered.connect(wrapper(custom_data[i][1]))
-            menu.addAction(actions[i])
-
+        
+        return actions
+    
     #===========================================================================
     # Edit picker item options ---
     def edit_options(self):
@@ -2313,7 +2326,7 @@ class PickerItem(DefaultPolygon):
         
         # Parse controls
         node_missing = False
-        controls = self.get_controls()
+        controls = self.get_controls()[:]
         for i in range(len(controls)):
             controls[i] = re.sub(search, replace, controls[i])
             if not cmds.objExists(controls[i]):
