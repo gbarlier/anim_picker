@@ -1,9 +1,8 @@
-# PyQt4 user interface for ctrl_picker
+# PyQt4 user interface for anim_picker
 # Author: Guillaume Barlier
+# (c) 2013
 
-import sys
 import os
-import math
 from PyQt4 import QtCore, QtGui, QtOpenGL
 import sip
 
@@ -14,7 +13,6 @@ from maya import cmds
 from maya import OpenMaya
 from maya import OpenMayaUI
 
-import data
 import node
 from handlers import python_handlers
 from handlers import maya_handlers
@@ -321,6 +319,12 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         
         # Open context menu under mouse
         menu.exec_(self.mapToGlobal(event.pos()))
+    
+    def fit_contents(self):
+        '''Will resize views content to match views size
+        '''
+        for i in range(self.count()):
+            self.widget(i).fit_scene_content()
         
     def rename_event(self, event):
         '''Will open dialog to rename tab
@@ -354,6 +358,9 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         
         # Add tab
         self.addTab(GraphicViewWidget(), name)
+        
+        # Set new tab active
+        self.setCurrentIndex(self.count()-1)
 
     def remove_tab_event(self):
         '''Will remove tab from widget
@@ -372,40 +379,34 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         # Remove tab
         self.removeTab(index)
 
-#    def set_fixed_size(self):
-#        self.setMaximumWidth(450)
-#        self.setMinimumWidth(450)
-#        self.setMaximumHeight(700)
-#        self.setMinimumHeight(700)
-#        
-#    def set_stretchable_size(self):
-#        if __EDIT_MODE__.get():
-#            return
-#            
-#        self.setMaximumWidth(9999)
-#        self.setMinimumWidth(50)
-#        self.setMaximumHeight(9999)
-#        self.setMinimumHeight(70)
-#        
-##        self.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+    def get_namespace(self):
+        '''Return data_node namespace
+        '''
+        # Proper parent
+        if isinstance(self.parent(), MainDockWindow):
+            return self.parent().get_current_namespace()
         
-#    def paintEvent(self, event=None):
-#        '''Used as size constraint override based on edit status
-#        '''
-#        if __EDIT_MODE__.get():
-#            self.set_fixed_size()
-#        else:
-#            self.set_stretchable_size()
-#        
-#        if event:
-#            QtGui.QTabWidget.paintEvent(self, event)
+        return None
+        
+    def get_current_picker_items(self):
+        '''Return all picker items for current active tab
+        '''
+        return self.currentWidget().get_picker_items()
+    
+    def get_all_picker_items(self):
+        '''Returns all picker items for all tabs
+        '''
+        items = list()
+        for i in range(self.count()):
+            items.extend(self.widget(i).get_picker_items())
+        return items
         
     def get_data(self):
         '''Will return all tabs data
         '''
         data = list()
         for i in range(self.count()):
-            name = self.tabText(i)
+            name = unicode(self.tabText(i))
             tab_data = self.widget(i).get_data()
             data.append([name, tab_data])
         return data
@@ -415,10 +416,10 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         '''
         self.clear()
         for tab in data:
-            view = GraphicViewWidget()
+            view = GraphicViewWidget(namespace=self.get_namespace())
             self.addTab(view, tab[0])
             view.set_data(tab[1])
-            
+    
         
 class BackgroundWidget(QtGui.QLabel):
     '''QLabel widget to support background options for tabs.
@@ -463,12 +464,6 @@ class BackgroundWidget(QtGui.QLabel):
         # Use stylesheet rather than pixmap for proper resizing support
         self._set_stylesheet_background()
 
-#        # Load image
-#        image = QtGui.QImage(path)
-#        self.setPixmap(QtGui.QPixmap.fromImage(image))
-#        self.setAlignment(QtCore.Qt.AlignTop)
-#        self.setScaledContents(True)
-
     def file_dialog(self):
         '''Get file dialog window starting in default folder
         '''
@@ -478,22 +473,18 @@ class BackgroundWidget(QtGui.QLabel):
         return file_path
     
     
-    
-    
 class SnapshotWidget(BackgroundWidget):
     '''Top right character "snapshot" widget, to display character picture
     '''
     __EDIT_MODE__ = handlers.__EDIT_MODE__
     
     def __init__(self,
-                 parent=None,
-                 get_current_data_callback=None):
+                 parent=None):
         BackgroundWidget.__init__(self, parent )
         
         self.setFixedWidth(80)
         self.setFixedHeight(80)
         
-        self.get_current_data = get_current_data_callback
         self.set_background()
     
     def _get_default_snapshot(self, name='undefined'):
@@ -516,9 +507,6 @@ class SnapshotWidget(BackgroundWidget):
             self.background = None
         else:
             self.background = unicode(path)
-        
-        # Update data
-        self.get_current_data().snapshot = self.background
             
         # Load image
         image = QtGui.QImage(path)
@@ -566,6 +554,12 @@ class SnapshotWidget(BackgroundWidget):
         '''
         # Reset background
         self.set_background()
+        
+    def get_data(self):
+        '''Return snapshot picture path 
+        '''
+        return self.background
+        
 
 
 #===============================================================================
@@ -594,6 +588,7 @@ class SnapshotWidget(BackgroundWidget):
 #        print 'done current'
 #        QtOpenGL.QGLWidget.doneCurrent(self)
 #        WGL.wglMakeCurrent(self._HDC, self._HRC)
+
 
 class State():
     '''State object, for easy state handling
@@ -928,17 +923,98 @@ class SearchAndReplaceDialog(QtGui.QDialog):
         win.exec_()
         win.raise_()
         return win.get_values()
+
+        
+class AxedGraphicsScene(QtGui.QGraphicsScene):
+    '''
+    Custom QGraphicsScene with x/y axis line options for origin feedback in edition mode
+    (provides a center reference to work from, view will fit what ever is the content in use mode).
+    '''
+    ___DEFAULT_SIZE__ = 200
+    
+    def __init__(self, parent=None):
+        QtGui.QGraphicsScene.__init__(self, parent=parent)
+        
+        self.x_axis_line = None
+        self.y_axis_line = None
+        
+        if __EDIT_MODE__.get():
+            self.add_x_axis()
+            self.add_y_axis()
+    
+    def addItem(self, item):
+        '''Overload to keep axis on top
+        '''    
+        QtGui.QGraphicsScene.addItem(self, item)
+        self.move_axis_line_to_front()
+        
+    def move_axis_line_to_front(self):
+        '''Move axis lines to front, to appear on top of every other scene item
+        '''
+        # Move to temp scene
+        tmp_scene = QtGui.QGraphicsScene()
+        
+        if self.x_axis_line:
+            tmp_scene.addItem(self.x_axis_line)
+            QtGui.QGraphicsScene.addItem(self, self.x_axis_line)
+        
+        if self.y_axis_line:
+            tmp_scene.addItem(self.y_axis_line)
+            QtGui.QGraphicsScene.addItem(self, self.y_axis_line)
+            
+        # Clean
+        tmp_scene.deleteLater()
+             
+    def add_x_axis(self):
+        '''Add x axis doted line item to scene
+        '''
+        self.x_axis_line = QtGui.QGraphicsLineItem(self.get_x_line())
+        self.set_line_properties(self.x_axis_line)
+        self.addItem(self.x_axis_line)
+        return self.x_axis_line
+    
+    def add_y_axis(self):
+        '''Add y axis doted line item to scene
+        '''
+        self.y_axis_line = QtGui.QGraphicsLineItem(self.get_y_line())
+        self.set_line_properties(self.y_axis_line)
+        self.addItem(self.y_axis_line)
+        return self.y_axis_line
+        
+    def set_line_properties(self, line_item):
+        '''set proper paint properties for axis line item
+        '''
+        pen = QtGui.QPen(QtGui.QColor(160,160,160,120),
+                         1,
+                         QtCore.Qt.DashLine)
+        line_item.setPen(pen)
+    
+    def get_x_line(self):
+        '''Return x axis QLineF
+        '''
+        line = QtCore.QLineF(-self.___DEFAULT_SIZE__, 0,
+                             self.___DEFAULT_SIZE__, 0)
+        return line
+    
+    def get_y_line(self):
+        '''Return y axis QLineF
+        '''
+        line = QtCore.QLineF(0, -self.___DEFAULT_SIZE__,
+                             0, self.___DEFAULT_SIZE__)
+        return line
     
         
 class GraphicViewWidget(QtGui.QGraphicsView):
     '''Graphic view widget that display the "polygons" picker items 
     '''
-    def __init__(self):
+    def __init__(self,
+                 namespace=None):
         QtGui.QGraphicsView.__init__(self)
         
-        self.setScene(QtGui.QGraphicsScene())
-        self.scene().setSceneRect( -100,-100, 200, 200 )
-        self.scene().get_namespace = self._scene_get_namespace
+        self.setScene(AxedGraphicsScene())
+        self.scene().setSceneRect( -200,-300, 400, 600 )
+        
+        self.namespace = namespace
         
         # Scale view in Y for positive Y values (maya-like)
         self.scale(1, -1)
@@ -959,20 +1035,81 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             
         self.setResizeAnchor( self.AnchorViewCenter )
     
-    def _scene_get_namespace(self):
-        '''Used to provide namespace callback for picker items in scene
-        '''
-        return self.get_namespace()
-    
-    def get_namespace(self):
-        '''This function should be overritten by callback after init
-        '''
-        return ''
-    
-#    def mouseMoveEvent(self, event):
-#        print event.pos() # debug
-#        return QtGui.QGraphicsView.mouseMoveEvent(self, event)
+#        # Set selection mode
+#        self.setRubberBandSelectionMode(QtCore.Qt.IntersectsItemBoundingRect)
+#        self.setDragMode(self.RubberBandDrag)
+#        self.scene_drag_origin = QtCore.QPointF()
+#        self.drag_active = False
 
+        # Disable scroll bars 
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff);
+        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff);
+
+    def mousePressEvent(self, event):
+        '''Overload to clear selection on empty area
+        '''
+        QtGui.QGraphicsView.mousePressEvent(self, event)
+        if event.buttons() == QtCore.Qt.LeftButton:
+            scene_pos = self.mapToScene(event.pos())
+            
+            # Get current viewport transformation
+            transform = self.viewportTransform()
+            
+            # Clear selection if no picker item below mouse
+            if not self.scene().itemAt(scene_pos, transform):
+                if not event.modifiers():
+                    cmds.select(cl=True)
+                
+#            # Rubber band selection support
+#            self.scene_drag_origin = self.mapToScene(event.pos())
+#            self.drag_active = True            
+
+#    def mouseReleaseEvent(self, event):
+#        QtGui.QGraphicsView.mouseReleaseEvent(self, event)
+#  
+#        if(event.button() == QtCore.Qt.LeftButton and self.drag_active):
+#            scene_drag_end = self.mapToScene(event.pos())
+#            
+#            sel_area = QtCore.QRectF(self.scene_drag_origin, scene_drag_end)
+#            
+#            transform = self.viewportTransform()
+#            if not sel_area.size().isNull():
+#                items = self.scene().items(sel_area,
+#                                           QtCore.Qt.IntersectsItemShape,
+#                                           QtCore.Qt.AscendingOrder,
+#                                           deviceTransform=transform)
+#                
+#                picker_items = list()
+#                for item in items:
+#                    if not isinstance(item, PickerItem):
+#                        continue
+#                    picker_items.append(item)
+#                    
+#                print picker_items 
+#  
+#        self.drag_active = False
+    
+    def wheelEvent(self, event):
+        '''Wheel event overload to add zoom support
+        '''
+        # Run default event
+        QtGui.QGraphicsView.wheelEvent(self, event)
+        
+        # Define zoom factor
+        factor = 1.1
+        if event.delta() < 0:
+            factor = 0.9
+        
+        # Apply zoom
+        self.zoom(factor,)
+#                  self.mapToScene(event.pos()))
+        
+    def zoom(self, factor, center=QtCore.QPointF(0,0)):
+        '''Zoom by factor and keep "center" in view
+        '''
+        self.scale(factor, factor)
+        self.centerOn(center)
+        
     def contextMenuEvent(self, event):
         '''Right click menu options
         '''
@@ -1016,11 +1153,28 @@ class GraphicViewWidget(QtGui.QGraphicsView):
 
         # Open context menu under mouse
         menu.exec_(self.mapToGlobal(event.pos()))
-
+    
+    def resizeEvent(self, *args, **kwargs):
+        '''Overload to force scale scene content to fit view
+        '''
+        # Fit scene content to view
+        self.fit_scene_content()
+        
+        # Run default resizeEvent
+        return QtGui.QGraphicsView.resizeEvent(self, *args, **kwargs)
+    
+    def fit_scene_content(self):
+        '''Will fit scene content to view, by scaling it
+        '''
+        margin = 10
+        self.fitInView(-margin, -margin,
+                       self.scene().width() +margin, self.scene().height() +margin,
+                       mode=QtCore.Qt.KeepAspectRatio)
+        
     def add_picker_item(self, event=None):
         '''Add new PickerItem to current view
         '''
-        ctrl = PickerItem()
+        ctrl = PickerItem(namespace=self.namespace)
         ctrl.setParent(self)
         self.scene().addItem(ctrl)
         
@@ -1063,16 +1217,6 @@ class GraphicViewWidget(QtGui.QGraphicsView):
 #        # Reset size to default
 #        self.parentWidget().reset_default_size()
 #        self.parentWidget().refresh()
-    
-    def add_middle_line(self):
-        pass
-#        # Get widget current size
-#        size = self.size()
-#        
-#        # Draw middle line
-#        pen = QtGui.QPen(QtCore.Qt.black, 1, QtCore.Qt.DashLine)
-#        painter.setPen(pen)
-#        painter.drawLine(size.width()/2, 0, size.width()/2, size.height())
     
 #    def set_background(self, index, path=None):
 #        '''Set tab index widget background image
@@ -1128,10 +1272,10 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         '''Clear view, by replacing scene with a new one
         '''
         old_scene = self.scene()
-        self.setScene(QtGui.QGraphicsScene())
+        self.setScene(AxedGraphicsScene())
         old_scene.deleteLater()
         
-    def get_scene_picker_items(self):
+    def get_picker_items(self):
         '''Return scene picker items in proper order (back to front)
         '''
         items = list()
@@ -1146,13 +1290,13 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         # Reverse list order (to return back to front)
         items.reverse()
         
-        return item
+        return items
         
     def get_data(self):
         '''Return view data
         '''
         data = list()
-        for item in self.get_scene_picker_items():
+        for item in self.get_picker_items():
             data.append(item.get_data())
         return data
         
@@ -1168,6 +1312,8 @@ class GraphicViewWidget(QtGui.QGraphicsView):
 class DefaultPolygon(QtGui.QGraphicsObject):
     '''Default polygon class, with move and hover support
     '''
+    __DEFAULT_COLOR__ = QtGui.QColor(0,0,0,255)
+    
     def __init__(self, parent=None):
         QtGui.QGraphicsObject.__init__(self, parent=parent)
         
@@ -1177,6 +1323,9 @@ class DefaultPolygon(QtGui.QGraphicsObject):
         # Hover feedback
         self.setAcceptHoverEvents(True)
         self._hovered = False
+        
+        # Init default
+        self.color = DefaultPolygon.__DEFAULT_COLOR__
         
     def hoverEnterEvent(self, event=None):
         '''Lightens background color on mose over
@@ -1198,14 +1347,51 @@ class DefaultPolygon(QtGui.QGraphicsObject):
         Returns the bounding rectangle for the graphic item
         '''
         return self.shape().boundingRect()
+    
+    def itemChange(self, change, value):
+        '''itemChange update behavior
+        '''
+        # Catch position update
+        if change == self.ItemPositionChange:
+            # Force scene update to prevent "ghosts"
+            # (ghost happen when the previous polygon is out of the new bounding rect when updating)
+            if self.scene():
+                self.scene().update()
         
-                
+        # Run default action
+        return QtGui.QGraphicsObject.itemChange(self, change, value)
+    
+    def get_color(self):
+        '''Get polygon color
+        '''
+        return self.color
+    
+    def set_color(self, color=None):
+        '''Set polygon color
+        '''
+        if not color:
+            color = self.__DEFAULT_COLOR__
+        elif isinstance(color, (list, tuple)):
+            color = QtGui.QColor(*color)
+        
+        assert isinstance(color, QtGui.QColor), 'input color"%s" is invalid'
+        
+        self.color = color
+        self.update()
+        
+        return color
+
+
 class PointHandle(DefaultPolygon):
+    '''Handle polygon object to move picker polygon cvs
+    '''
+    __DEFAULT_COLOR__ = QtGui.QColor(30,30,30,200)
+    
     def __init__(self,
                  x=0,
                  y=0,
                  size=8,
-                 color=QtGui.QColor(30,30,30,200),
+                 color=None,
                  parent=None):
         
         DefaultPolygon.__init__(self, parent)
@@ -1217,7 +1403,7 @@ class PointHandle(DefaultPolygon):
         self.setPos(x, y)
         
         self.size = size
-        self.color = color
+        self.set_color()
     
         # Hide by default
         self.setVisible(False)
@@ -1235,18 +1421,10 @@ class PointHandle(DefaultPolygon):
                                  parent=self.parentObject())
         return new_handle
     
-    def _get_pos_for_input(self, input):
-        if isinstance(input, PointHandle):
-            return input.pos()
-        return input
-#        elif hasattr(other, 'pos'):
-#            return other.pos()
-#        elif hasattr(other, 'x') and hasattr(other, 'y'):
-#            return QtCore.QPointF(other.x(), other.y())
-#        elif type(input) in [float, int]:
-#            return input
-#        
-#        raise 'invalid input "%s", does not support QPointF operations'%other
+    def _get_pos_for_input(self, other):
+        if isinstance(other, PointHandle):
+            return other.pos()
+        return other
     
     def __add__(self, other):
         other = self._get_pos_for_input(other)
@@ -1312,20 +1490,7 @@ class PointHandle(DefaultPolygon):
         painter.setPen( QtGui.QColor(0,0,0,180) ) 
         painter.drawLine(-cross_size, 0, cross_size, 0)
         painter.drawLine(0, cross_size, 0, -cross_size)
-        
-    def itemChange(self, change, value):
-        '''itemChange update behavior
-        '''
-        # Catch position update
-        if change == self.ItemPositionChange:
-            # Force update parent to prevent "ghosts"
-            # ghosts will still happen if hadle is moved "fast"
-            # (i suspecting that the ghost is out of the parent bounding rect when updating)
-            self.parent().update()
-        
-        # Run default action
-        return DefaultPolygon.itemChange(self, change, value)
-    
+
     def mirror_x_position(self):
         '''will mirror local x position value
         '''
@@ -1344,38 +1509,25 @@ class Polygon(DefaultPolygon):
     Picker controls visual graphic object
     (inherits from QtGui.QGraphicsObject rather than QtGui.QGraphicsItem for signal support)
     '''
+    __DEFAULT_COLOR__ = QtGui.QColor(200,200,200,180)
+    __DEFAULT_SELECT_COLOR__ = QtGui.QColor(30,200,30,180)
+    
     def __init__(self,
                  parent=None, # QGraphicItem
                  points=list(),
-                 color=QtGui.QColor(200,200,200,180)):
+                 color=None):
         
         DefaultPolygon.__init__(self, parent=parent)
         self.points = points
-        self.color = color
+        self.set_color(Polygon.__DEFAULT_COLOR__)
         
         self._edit_status = False
         self.selected = False
-        
-    def setup(self):
-        '''Setup control 
-        '''
-        pass
     
     def set_edit_status(self, status=False):
         self._edit_status = status
         self.update()
-          
-#    def itemChange(self, change, value):
-#        '''Event override to emit signal on movement
-#        '''
-#        if change == self.ItemPositionChange:
-#            pass
-#                
-#        return QtCore.QVariant(value)
     
-    
-        
-        
     def shape(self):
         '''Override function to return proper "hit box", and compute shape only once.
         '''
@@ -1432,7 +1584,8 @@ class Polygon(DefaultPolygon):
         # Selection boder color feedback
         if self.selected:
             # Set pen color
-            border_pen = QtGui.QPen(QtGui.QColor(30,255,30,255))
+            border_pen = QtGui.QPen(self.__DEFAULT_SELECT_COLOR__)
+            border_pen.setWidthF(2.0)
             painter.setPen(border_pen)
             
             # Paint boder
@@ -1455,11 +1608,22 @@ class Polygon(DefaultPolygon):
             return
             
         # Change state, and update
-        self.polygon.selected = state
+        self.selected = state
         self.update()
+        
+    def set_color(self, color):
+        # Run default method
+        color = DefaultPolygon.set_color(self, color)
+        
+        # Store new color as default
+        Polygon.__DEFAULT_COLOR__ = color 
         
 
 class GraphicText(QtGui.QGraphicsSimpleTextItem):
+    '''
+    '''
+    __DEFAULT_COLOR__ = QtGui.QColor(30,30,30,255)
+    
     def __init__(self, parent=None, scene=None):
         QtGui.QGraphicsSimpleTextItem.__init__(self, parent, scene)
         
@@ -1469,6 +1633,7 @@ class GraphicText(QtGui.QGraphicsSimpleTextItem):
         
         # Init default size
         self.set_size()
+        self.set_color(GraphicText.__DEFAULT_COLOR__)
         
     def set_text(self, text):
         '''
@@ -1501,13 +1666,18 @@ class GraphicText(QtGui.QGraphicsSimpleTextItem):
         '''
         return self.brush().color()
     
-    def set_color(self, color=QtGui.QColor(0,0,0,255)):
+    def set_color(self, color=None):
         '''Set text color
         '''
+        if not color:
+            return
         brush = self.brush()
         brush.setColor(color)
         self.setBrush(brush)
-    
+        
+        # Store new color as default color
+        GraphicText.__DEFAULT_COLOR__ = color
+        
     def center_on_parent(self):
         '''
         Center text on parent item
@@ -1518,9 +1688,12 @@ class GraphicText(QtGui.QGraphicsSimpleTextItem):
         
         
 class PickerItem(DefaultPolygon):
+    '''Main picker graphic item container
+    '''
     def __init__(self,
                  parent=None,
-                 point_count=4):
+                 point_count=4,
+                 namespace=None):
         
         DefaultPolygon.__init__(self, parent=parent)
         self.point_count = point_count
@@ -1528,10 +1701,12 @@ class PickerItem(DefaultPolygon):
         self.setPos(25,30)
         
         # Make item movable
-        self.setFlag(self.ItemIsMovable)
-        self.setFlag(self.ItemSendsScenePositionChanges)
+        if __EDIT_MODE__.get():
+            self.setFlag(self.ItemIsMovable)
+            self.setFlag(self.ItemSendsScenePositionChanges)
         
         # Default vars
+        self.namespace = namespace
         self._edit_status = False
         self.edit_window = None
         
@@ -1656,22 +1831,46 @@ class PickerItem(DefaultPolygon):
 #    def mousePressEvent(self, event):
 #        '''Event called on mouse press
 #        '''
-#        # Find selected control
-#        ctrl = self.find_active_control(event.pos())
-#        if not ctrl:
-#            # Clear selection on empty zone click
-#            cmds.select(cl=True)
-#            return
-#        
-#        # Set active control
-#        self.set_active_control(ctrl)
-#
 #        # Abort on any thing ells than left mouse button
 #        if not event.button() == QtCore.Qt.LeftButton:
 #            return
 #        
-#        # Forward event to control
-#        self.active_control.mousePressEvent(event)
+#        # Select related nodes
+#        self.select_associated_controls(modifier)
+#        
+    def mousePressEvent(self, event):
+        '''Event called on mouse press
+        '''
+        # Edit behavior event
+        if __EDIT_MODE__.get():
+            return DefaultPolygon.mousePressEvent(self, event)
+    
+        # Default event
+        return self.mouse_press_default_event(event)
+    
+    def mouse_press_default_event(self, event):
+        '''
+        Default event on mouse press.
+        Will select associated controls
+        '''
+        # Get keyboard modifier
+        modifiers = event.modifiers()
+        modifier = None
+        
+        # Shift cases (toggle)
+        if modifiers == QtCore.Qt.ShiftModifier:
+            modifier = 'shift'
+        
+        # Controls case
+        if modifiers == QtCore.Qt.ControlModifier:
+            modifier = 'control'
+            
+        # Alt case (remove)
+        if modifiers == QtCore.Qt.AltModifier:
+            modifier = 'alt'
+        
+        # Call action
+        self.select_associated_controls(modifier=modifier)
 
     def mouseDoubleClickEvent(self, event):
         '''Event called when mouse is double clicked
@@ -1775,7 +1974,7 @@ class PickerItem(DefaultPolygon):
         '''Context menu (right click) out of edition mode (animation)
         '''
         # Init context menu
-        menu = QtGui.QMenu(self)
+        menu = QtGui.QMenu(self.parent())
             
 #        # Add reset action
 #        reset_action = QtGui.QAction("Reset", None)
@@ -1866,13 +2065,12 @@ class PickerItem(DefaultPolygon):
     def get_color(self):
         '''Get polygon color
         '''
-        return self.polygon.color
+        return self.polygon.get_color()
     
-    def set_color(self, color=QtGui.QColor(200,200,200,180)):
+    def set_color(self, color=None):
         '''Set polygon color
         '''
-        self.polygon.color = color
-        self.update()
+        self.polygon.set_color(color)
     
     #===========================================================================
     # Text handling ---
@@ -2028,16 +2226,20 @@ class PickerItem(DefaultPolygon):
     def get_namespace(self):
         '''Will return associated namespace
         '''
-        return self.scene().get_namespace()
+        return self.namespace
     
     def set_control_list(self, ctrls=list()):
         '''Update associated control list
         '''
         self.controls = ctrls
 
-    def get_controls(self):
+    def get_controls(self, with_namespace=True):
         '''Return associated controls 
         '''
+        # Returned controls without namespace (as data stored)
+        if not with_namespace:
+            return self.controls
+        
         # Get namespace
         namespace = self.get_namespace()
         
@@ -2096,7 +2298,7 @@ class PickerItem(DefaultPolygon):
     
     def is_selected(self):
         '''
-        Will return True if the nod from maya_nodes is currently selected
+        Will return True if a related control is currently selected
         (Only works with polygon that have a single associated maya_node)
         '''
         # Get controls associated nodes
@@ -2185,10 +2387,10 @@ class PickerItem(DefaultPolygon):
         
         # Add controls data
         if self.get_controls():
-            data['controls'] = self.get_controls()
+            data['controls'] = self.get_controls(with_namespace=False)
         
         # Add custom menus data
-        if self.get_controls():
+        if self.get_custom_menus():
             data['menus'] = self.get_custom_menus()
         
         if self.get_text():
@@ -2798,6 +3000,8 @@ class ItemOptionsWindow(QtGui.QMainWindow):
     #===========================================================================
     # Menus management
     def _add_menu_item(self, text=None):
+        '''Add a menu item to menu list widget
+        '''
         item = QtGui.QListWidgetItem()
         item.index = self.menus_list.count()
         if text:
@@ -2806,7 +3010,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         return item
             
     def _populate_menu_list_widget(self):
-        '''
+        '''Populate list widget with menu data
         '''
         # Empty list
         self.menus_list.clear()
@@ -2817,6 +3021,8 @@ class ItemOptionsWindow(QtGui.QMainWindow):
             self._add_menu_item(text=menus_data[i][0])
     
     def _update_menu_data(self, index, name, cmd):
+        '''Update custom menu data
+        '''
         menu_data = self.picker_item.get_custom_menus()
         if index> len(menu_data)-1:
             menu_data.append([name, cmd])
@@ -2849,7 +3055,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self.menus_list.clearSelection()
     
     def new_menu_event(self):
-        '''
+        '''Add new custom menu btn event
         '''
         # Open input window
         name, cmd, ok = CustomMenuEditDialog.get(item=self.picker_item)
@@ -2863,6 +3069,8 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self._update_menu_data(item.index, name, cmd)
     
     def remove_menus_event(self):
+        '''Remove custom menu btn event
+        '''
         # Get selected item
         items = self.menus_list.selectedItems()
         assert items, 'no list item selected'
@@ -2880,7 +3088,6 @@ class ItemOptionsWindow(QtGui.QMainWindow):
 class MainDockWindow(QtGui.QDockWidget):
     __OBJ_NAME__ = 'ctrl_picker_window'
     __TITLE__ = 'Ctrl Picker'
-    __EDIT_MODE__ = handlers.__EDIT_MODE__
     
     def __init__(self,
                  parent=get_maya_window(),
@@ -2896,10 +3103,9 @@ class MainDockWindow(QtGui.QDockWidget):
         self.default_height = 837
         
         # Default vars
-        self.default_color = QtGui.QColor(200,200,200,180)
         self.childs = list()
-        self.char_node = node.DataNode()
         self.status = False
+        self.script_jobs = list()
         
         __EDIT_MODE__.set_init(edit)
         
@@ -2929,26 +3135,15 @@ class MainDockWindow(QtGui.QDockWidget):
         # Add window fields
         self.add_character_selector()
         self.add_tab_widget()
-        
-        # Add bottom vertical spacer to main layout
-#        self.main_vertical_layout.addStretch()
-        
+
         # Add main widget to window
         self.setWidget(self.main_widget)
-        
-        # Add docking event signet
-        self.connect(self,
-                     QtCore.SIGNAL('topLevelChanged(bool)'),
-                     self.dock_event)
         
     def reset_default_size(self):
         '''Reset window size to default
         '''
         self.resize(self.default_width, self.default_height)
-    
-    def get_current_data(self):
-        return self.char_node.data
-    
+
     def add_character_selector(self):
         '''Add Character comboBox selector
         '''
@@ -2992,14 +3187,14 @@ class MainDockWindow(QtGui.QDockWidget):
             box_layout.addWidget(self.new_char_btn)
             
             # Add Save  button
-            self.save_char_btn = CallbackButton(callback=self.save_character_event)
+            self.save_char_btn = CallbackButton(callback=self.save_character)
             self.save_char_btn.setText('Save')
             self.save_char_btn.setFixedWidth(40)
         
             box_layout.addWidget(self.save_char_btn)
             
         # Create character picture widget
-        self.pic_widget = SnapshotWidget(get_current_data_callback=self.get_current_data)
+        self.pic_widget = SnapshotWidget()
         layout.addWidget(self.pic_widget)
         
     def add_tab_widget(self, name = 'default'):
@@ -3009,63 +3204,18 @@ class MainDockWindow(QtGui.QDockWidget):
         self.main_vertical_layout.addWidget(self.tab_widget)
         
         # Add default first tab
-        self.view = GraphicViewWidget()
-        self.tab_widget.addTab(self.view, name)
-        
-        # Overwrite callbacks
-        self.view.get_namespace = self._get_current_namespace
-        
-#        # Add mouse event catcher widget
-#        self.mouse_catcher = MouseEventCatcherWidget(parent=self,
-#                                                     get_ctrls_callback=self.get_ctrl_list,
-#                                                     field_widget_callback = self.get_active_field,
-#                                                     add_ctrl_callback=self.add_ctrl_event,
-#                                                     remove_ctrl_callback=self.remove_ctrl,
-#                                                     set_tab_background_callback=self.tab_widget.set_background_event,
-#                                                     reset_tab_background_callback=self.tab_widget.reset_background_event,
-#                                                     move_to_back_callback=self.move_ctrl_to_back_event)
-        
-    def get_active_field(self):
-        '''Return the active ctrl field
-        '''
-        return self.tab_widget.currentWidget()
+        view = GraphicViewWidget()
+        self.tab_widget.addTab(view, name)
     
-    def get_ctrl_list(self):
-        # Get tab index
-        index = self.tab_widget.currentIndex()
-        
-        # Remove from control list
-        return self.get_current_data().tabs[index].controls
-#        return self.data['tabs'][index].get('ctrls', list())
-    
-    def dock_event(self, area=None):
-        '''Disable resizing to force proper size and reenable after docking
+    def get_picker_items(self):
+        '''Return picker items for current active tab
         '''
-        new_size = self.size()
-        
-        # Prevent docking update in edit mode to preserve controls
-        if __EDIT_MODE__.get():
-            return
-        
-#        self.mouse_catcher.toggle_edit_mode()
-#        self.mouse_catcher.toggle_edit_mode()
-        
-        if not self.isFloating():
-            self.resize(new_size)
-        
-#    def resizeEvent(self, event=None):
-#        '''Resize ctrl field infos
-#        '''
-##        # Resize mouse event catcher widget
-##        self.mouse_catcher.update_size()
-#        
-#        # Parse tabs
-#        for tab in self.get_current_data().tabs:
-#            for ctrl in tab.controls:
-#                ctrl.get_widget().update_size()
-#        
-#        if event:
-#            event.accept()
+        return self.tab_widget.get_current_picker_items() 
+    
+    def get_all_picker_items(self):
+        '''Return all picker items for current picker
+        '''
+        return self.tab_widget.get_all_picker_items() 
     
     def closeEvent(self, *args, **kwargs):
         '''Overwriting close event to close child windows too
@@ -3078,11 +3228,10 @@ class MainDockWindow(QtGui.QDockWidget):
             child.close()
         
         # Close ctrls options windows
-        for ctrl in self.get_ctrl_list():
-            ctrl_widget = ctrl.get_widget()
-            if not ctrl_widget.edit_window:
+        for item in self.get_all_picker_items():
+            if not item.edit_window:
                 continue
-            ctrl_widget.edit_window.close()
+            item.edit_window.close()
         
         # Default close    
         QtGui.QDockWidget.closeEvent(self, *args, **kwargs)
@@ -3098,85 +3247,9 @@ class MainDockWindow(QtGui.QDockWidget):
         
         # Add script jobs
         self.add_script_jobs()
-        
-    def set_default_color(self, color):
-        '''Will set default color for new polygons
-        '''
-        self.default_color = QtGui.QColor(color)
-        
-#    def add_ctrl_event(self, event=None, load=False):
-#        '''Add new polygon control to current tab
-#        '''
-#        ctrl = PickerItem()
-#        scene = self.get_active_field().scene()
-#        scene.addItem(ctrl)
-#        
-##        # Create new ctrl
-##        ctrl = PolygonShapeWidget(self.get_active_field(),
-##                                  color=self.default_color,
-##                                  set_default_color_callback=self.set_default_color,
-##                                  add_ctrl_callback=self.add_ctrl_event,
-##                                  get_current_data_node_callback=self._get_current_data_node,)
-##
-##        # Do not add control to data list in load mode
-##        if load:
-##            return ctrl
-##                   
-##        # Move ctrl
-##        if event:
-##            ctrl.move_to(event.pos())
-##        else:
-##            ctrl.move_to_center()
-##        
-##        # Get tab index
-##        index = self.tab_widget.currentIndex()
-##
-##        # Update ctrl list
-##        self.get_current_data().tabs[index].controls.append(ctrl.data)
-#
-#        return ctrl
-    
-#    def remove_ctrl(self, ctrl):
-#        '''Delete ctrl and remove from data
-#        '''
-#        # Get tab index
-#        index = self.tab_widget.currentIndex()
-#        
-#        # Remove from control list
-#        control_widgets = self.get_current_data().tabs[index].get_control_widgets()
-#        if not ctrl in control_widgets:
-#            return
-#        
-#        # Close ctrl edit window if open
-#        if ctrl.edit_window:
-#            ctrl.edit_window.close()
-#        
-#        # Delete widget
-#        ctrl.deleteLater()
-#        self.get_current_data().tabs[index].controls.pop(control_widgets.index(ctrl))
-#        ctrl.close()
-#        ctrl = None
-    
-    def move_ctrl_to_back_event(self, ctrl):
-        '''Move control to background layer
-        '''
-        # Get tab index
-        index = self.tab_widget.currentIndex()
-        
-        control_widgets = self.get_current_data().tabs[index].get_control_widgets()
-        poly_data = self.get_current_data().tabs[index].controls.pop(control_widgets.index(ctrl))
-        self.get_current_data().tabs[index].controls.insert(0, poly_data)
-        
-        # Refresh display
-        tab_widget = self.get_active_field()
-        for control in self.get_current_data().tabs[index].controls:
-            widget = control.get_widget()
-            widget.setParent(None)
-            widget.setParent(tab_widget)
-            widget.show()
 
     #===========================================================================
-    # Character selector handlers
+    # Character selector handlers ---
     def selector_change_event(self, index):
         '''Will load data node relative to selector index
         '''
@@ -3211,7 +3284,6 @@ class MainDockWindow(QtGui.QDockWidget):
         # Set status
         self.char_selector_cb.setEnabled(self.status)
         self.tab_widget.setEnabled(self.status)
-#        self.mouse_catcher.setEnabled(self.status)
         if self.save_char_btn:
             self.save_char_btn.setEnabled(self.status)
         
@@ -3222,15 +3294,42 @@ class MainDockWindow(QtGui.QDockWidget):
     def load_default_tabs(self):
         '''Will reset and load default empty tabs
         '''
-        self.tab_widget.reset()
+        self.tab_widget.clear()
         self.tab_widget.addTab(QtGui.QWidget(), 'None')
-            
+    
     def refresh(self):
         '''Refresh char selector and window
         '''
+        # Get current active node
+        current_node = None
+        data_node = self.get_current_data_node()
+        if data_node and data_node.exists():
+            current_node = data_node.name
+        
         # Re-populate selector
         self.populate_char_selector()
+        
+        # Set proper index
+        if current_node:
+            self.make_node_active(current_node)
             
+        # Refresh selection check
+        self.selection_change_event()
+        
+        # Force view resize
+        self.tab_widget.fit_contents()
+        
+    def make_node_active(self, data_node):
+        '''Will set character selector to specified data_node
+        '''
+        index = 0
+        for i in range(len(self.char_selector_cb.nodes)):
+            if not self.char_selector_cb.nodes[i].name == data_node: 
+                continue
+            index = i
+            break
+        self.char_selector_cb.setCurrentIndex(index)
+        
     def new_character(self):
         '''
         Will create a new data node, and init a new window
@@ -3246,21 +3345,21 @@ class MainDockWindow(QtGui.QDockWidget):
             return
         
         # Save current character
-        if self._get_current_data_node():
+        if self.get_current_data_node():
             self.save_character()
         
         # Create new data node
         data_node = node.DataNode(name=unicode(name))
         data_node.create()
-        self.char_node = data_node
         self.refresh()
+        self.make_node_active(data_node)
     
     #===========================================================================
-    # Data
-    def _get_current_namespace(self):
-        return self._get_current_data_node().get_namespace()
+    # Data ---
+    def get_current_namespace(self):
+        return self.get_current_data_node().get_namespace()
     
-    def _get_current_data_node(self):
+    def get_current_data_node(self):
         '''Return current character data node
         '''
         # Empty list case
@@ -3271,68 +3370,40 @@ class MainDockWindow(QtGui.QDockWidget):
         index = self.char_selector_cb.currentIndex()
         return self.char_selector_cb.nodes[index]
         
-    def _load_polygon_ctrl(self, data):
-        
-        ctrl = self.add_ctrl_event(load=True)
-        ctrl.set_data(data)
-        
-        return ctrl
-    
-    def _load_tab(self, tab_data):
-        # Add tab to display
-        widget = GraphicViewWidget()
-        self.tab_widget.addTab(widget, tab_data.name, load=True)
-        
-        # Make new tab active
-        self.tab_widget.setCurrentIndex(self.tab_widget.count()-1)
-        
-        # Set tab background
-        path = tab_data.background
-        widget.set_background(path)
-        
-        # Load tab controls
-        for ctrl_data in tab_data.controls:
-            self._load_polygon_ctrl(ctrl_data)
-        
-        # Return to first tab
-        self.tab_widget.setCurrentIndex(0)
-        
     def load_character(self):
         '''Load currently selected data node
         '''
         # Get DataNode
-        data_node = self._get_current_data_node()
+        data_node = self.get_current_data_node()
         if not data_node:
             return
-        
-        self.char_node = data_node
-        self.char_node.read_data()
-        
+        picker_data = data_node.get_data()
+         
         # Load snapshot
-        path = self.char_node.data.snapshot
+        path = picker_data.get('snapshot', None)
         self.pic_widget.set_background(path)
         
-        # Reset tabs
-        self.tab_widget.reset()
-        
-        # Load data in default size
-        self.tab_widget.set_fixed_size()
-    
-        # Parse tabs
-        for tab_data in self.char_node.data.tabs:
-            self._load_tab(tab_data)
+        # load tabs
+        tabs_data = picker_data.get('tabs', dict())
+        self.tab_widget.set_data(tabs_data)
         
         # Default tab
         if not self.tab_widget.count():
             self.tab_widget.addTab(GraphicViewWidget(), 'default')
+        else:
+            # Return to first tab
+            self.tab_widget.setCurrentIndex(0)
         
-        # Stretch size to layout
-        self.tab_widget.set_stretchable_size()
+        # Fit content
+        self.tab_widget.fit_contents()
         
-    
-    def save_character_event(self):
-        '''Save character button event, will show a warning in anim mode
+    def save_character(self):
+        '''Save data to current selected data_node
         '''
+        # Get DataNode
+        data_node = self.get_current_data_node()
+        assert data_node, 'No data_node found/selected'
+        
         # Block save in anim mode
         if not __EDIT_MODE__.get():
             QtGui.QMessageBox.warning(self,
@@ -3340,33 +3411,44 @@ class MainDockWindow(QtGui.QDockWidget):
                                       "Save is not permited in anim mode")
             return
         
-        self.save_character()
-        
-    def save_character(self):
-        '''Save data to current selected data_node
-        '''
-        # Get DataNode
-        data_node = self._get_current_data_node()
-        assert data_node, 'No data_node found/selected'
-        
-        # Abord in anim (switching mode)
-        if not __EDIT_MODE__.get():
-            return
-        
         # Write data to node
+        data_node.set_data(self.get_character_data())
         data_node.write_data()
     
+    def get_character_data(self):
+        '''Return window data
+        '''
+        picker_data = dict()
+        
+        # Add snapshot path data
+        snapshot_data = self.pic_widget.get_data()
+        if snapshot_data:
+            picker_data['snapshot'] = snapshot_data
+        
+        # Add tabs data
+        tabs_data = self.tab_widget.get_data()
+        if tabs_data:
+            picker_data['tabs'] = tabs_data
+    
+        return picker_data
+    
     #===========================================================================
-    # Script jobs handling
+    # Script jobs handling ---
     def add_script_jobs(self):
         '''Will add maya scripts job events
         '''
-        self.script_jobs = list()
+        # Clear any existing scrip jobs
+        self.kill_script_jobs()
         
+        # Get current UI maya_name
         ui_id = sip.unwrapinstance(self)
         ui_name = OpenMayaUI.MQtUtil.fullName( long(ui_id) )
+        
+        # Add selection change event
         job_id = cmds.scriptJob(p=ui_name, cu=True, kws=False, e=['SelectionChanged', self.selection_change_event])
         self.script_jobs.append(job_id)
+        
+        # Add scene open event
         job_id = cmds.scriptJob(p=ui_name, kws=False, e=['SceneOpened', self.selection_change_event])
         self.script_jobs.append(job_id)
     
@@ -3392,8 +3474,8 @@ class MainDockWindow(QtGui.QDockWidget):
         __SELECTION__.update()
         
         # Update controls for active tab
-        for ctrl in self.get_ctrl_list():
-            ctrl.get_widget().run_selection_check()
+        for item in self.get_picker_items():
+            item.run_selection_check()
             
         
 #===============================================================================

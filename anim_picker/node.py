@@ -3,30 +3,30 @@
 import sys
 from maya import cmds
 
-import data
-
-
 class DataNode():
     # Pipeline
     __NODE__ = 'PICKER_DATAS'
-    __TAG__ = 'rig_picker_datas_node'
+    __TAG__ = 'picker_datas_node'
 
     # Attributes names
-    __DATAS_ATTR__ = 'rig_ctrl_infos'
+    __DATAS_ATTR__ = 'picker_datas'
     
     
     def __init__(self, name=None):
         self.name = name
         if not name:
             self.name = self.__NODE__
-        self.data = data.CharacterData()
+        
+        self.data = dict()
+        if cmds.objExists(self.name):
+            self.data = self.read_data()
     
     def __repr__(self):        
         return "%s.%s(u'%s')"%(self.__class__.__module__,
                               self.__class__.__name__,
                               self.name)
     def __lt__(self, other):
-        '''override for "sort" function
+        '''Override for "sort" function
         '''
         return self.name < other.name
      
@@ -34,12 +34,18 @@ class DataNode():
         return self.name
     
     def __melobject__(self):
-        '''return maya mel friendly string result'''
+        '''Return maya mel friendly string result'''
         return self.name
+        
+    def exists(self):
+        return cmds.objExists(self.name)
     
     def _assert_exists(self):
-        assert cmds.objExists(self.name), 'Data node "%s" not found.'
-
+        assert self.exists(), 'Data node "%s" not found.'%self.name
+    
+    def _assert_not_referenced(self):
+        assert not cmds.referenceQuery(self.name, inr=True), 'Data node "%s" is referenced, and can not be modified.'%self.name
+        
     def create(self):
         '''Will create data node
         '''
@@ -86,8 +92,7 @@ class DataNode():
         '''
         # Sanity check
         self._assert_exists()
-        if cmds.referenceQuery(self.name, inr=True):
-            return
+        self._assert_not_referenced()
         
         # Init value
         if not value:
@@ -109,26 +114,33 @@ class DataNode():
     
     #===========================================================================
     # Set attributes
-    def write_data(self):
-        data_dict = self.data.get_data()
-        self._set_str_attr(self.__DATAS_ATTR__, value=data_dict)
+    def get_data(self):
+        return self.data
+    
+    def set_data(self, data):
+        self.data = data
+        
+    def write_data(self, data=None):
+        '''Write data to data node
+        '''
+        if not data:
+            data = self.data
+        self._set_str_attr(self.__DATAS_ATTR__, value=data)
     
     def read_data(self):
+        '''Read data from data node
+        '''
         self._assert_exists()
         
         # Reset node data
-        self.data = data.CharacterData()
+        data = dict()
         
         # Get data from attribute
         attr_data = self._get_attr(self.__DATAS_ATTR__)
-        if not attr_data:
-            return self.data
-        data_dict = eval(attr_data)
+        if attr_data:
+            data = eval(attr_data)
         
-        # Init data node
-        self.data.load_data(data_dict)
-        
-        return self.data
+        return data
     
     
 def get_nodes():
