@@ -3341,7 +3341,7 @@ class MainDockWindow(QtGui.QDockWidget):
         '''Will reset and load default empty tabs
         '''
         self.tab_widget.clear()
-        self.tab_widget.addTab(QtGui.QWidget(), 'None')
+        self.tab_widget.addTab(GraphicViewWidget(), 'None')
     
     def refresh(self):
         '''Refresh char selector and window
