@@ -936,23 +936,58 @@ class AxedGraphicsScene(QtGui.QGraphicsScene):
     '''
     Custom QGraphicsScene with x/y axis line options for origin feedback in edition mode
     (provides a center reference to work from, view will fit what ever is the content in use mode).
+    
+    Had to add z_index support since there was a little z conflict when "moving" items to back/front in edit mode 
     '''
     ___DEFAULT_SIZE__ = 200
     
     def __init__(self, parent=None):
         QtGui.QGraphicsScene.__init__(self, parent=parent)
         
+        self._z_index = 0
+        
         self.x_axis_line = None
         self.y_axis_line = None
         
-        if __EDIT_MODE__.get():
-            self.add_x_axis()
-            self.add_y_axis()
+        self.add_axis_lines()
     
+    def clear(self):
+        '''Reset default z index on clear
+        '''
+        QtGui.QGraphicsScene.clear(self)
+        self._z_index = 0
+        
+    def set_picker_items(self, items):
+        '''Will set picker items
+        '''
+        self.clear()
+        for item in items:
+            QtGui.QGraphicsScene.addItem(self, item)
+            self.set_z_value(item)
+        self.add_axis_lines()
+            
+    def get_picker_items(self):
+        '''Will return all scenes' picker items
+        '''
+        picker_items = list()
+        # Filter picker items (from handles etc)
+        for item in self.items():
+            if not isinstance(item, PickerItem):
+                continue
+            picker_items.append(item)
+        return picker_items
+    
+    def set_z_value(self, item):
+        '''set proper z index for item
+        '''
+        item.setZValue(self._z_index)
+        self._z_index += 1
+        
     def addItem(self, item):
         '''Overload to keep axis on top
         '''    
         QtGui.QGraphicsScene.addItem(self, item)
+        self.set_z_value(item)
         self.move_axis_line_to_front()
         
     def move_axis_line_to_front(self):
@@ -964,13 +999,20 @@ class AxedGraphicsScene(QtGui.QGraphicsScene):
         if self.x_axis_line:
             tmp_scene.addItem(self.x_axis_line)
             QtGui.QGraphicsScene.addItem(self, self.x_axis_line)
+            self.x_axis_line.setZValue(self._z_index+0.1)
         
         if self.y_axis_line:
             tmp_scene.addItem(self.y_axis_line)
             QtGui.QGraphicsScene.addItem(self, self.y_axis_line)
+            self.y_axis_line.setZValue(self._z_index+0.2)
             
         # Clean
         tmp_scene.deleteLater()
+    
+    def add_axis_lines(self):
+        if __EDIT_MODE__.get():
+            self.add_x_axis()
+            self.add_y_axis()
              
     def add_x_axis(self):
         '''Add x axis doted line item to scene
@@ -1196,7 +1238,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             ctrl.setPos(0,0)
 
         return ctrl
-    
+            
     def toggle_all_handles_event(self, event=None):
         new_status = None
         for item in self.scene().items():
@@ -2138,12 +2180,8 @@ class PickerItem(DefaultPolygon):
     def move_to_back(self):
         '''Move picker item to background level behind other items
         '''
-        # Filter scene picker Items
-        picker_items = list()
-        for item in self.scene().items():
-            if not isinstance(item, PickerItem):
-                continue
-            picker_items.append(item)
+        # Get picker Items
+        picker_items = self.scene().get_picker_items()
             
         # Reverse list since items are returned front to back
         picker_items.reverse()
