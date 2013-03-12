@@ -1468,7 +1468,7 @@ class PointHandle(DefaultPolygon):
         self.setVisible(False)
         
     #===========================================================================
-    # Add QPointF math support
+    # Default python methods
     #===========================================================================
     def _new_pos_handle_copy(self, pos):
         '''Return a new PointHandle isntance with same attributes but different position
@@ -1505,6 +1505,19 @@ class PointHandle(DefaultPolygon):
         new_pos = self.pos() / other
         return self._new_pos_handle_copy(new_pos)
     
+    #===========================================================================
+    # QT OVERRIDES
+    #===========================================================================
+    def setX(self, value=0):
+        '''Override to support keyword argument for spin_box callback
+        '''
+        DefaultPolygon.setX(self, value)
+    
+    def setY(self, value=0):
+        '''Override to support keyword argument for spin_box callback
+        '''
+        DefaultPolygon.setY(self, value)
+        
     #===========================================================================
     # Graphic item methods
     #===========================================================================
@@ -1868,7 +1881,12 @@ class PickerItem(DefaultPolygon):
         # Reset points
         points = self.get_default_handles()
         self.set_handles(points)
-        
+    
+    def get_handles(self):
+        '''Return picker item handles
+        '''
+        return self.handles
+    
     def set_handles(self, handles=list()):
         '''Set polygon handles points
         '''
@@ -2472,6 +2490,98 @@ class PickerItem(DefaultPolygon):
         return data
         
 
+class HandlesPositionWindow(QtGui.QMainWindow):
+    '''Whild window to edit picker item handles local positions
+    '''
+    __OBJ_NAME__ = 'picker_item_handles_window'
+    __TITLE__ = 'Handles positions'
+    
+    __DEFAULT_WIDTH__ = 250
+    __DEFAULT_HEIGHT__ = 300
+    
+    def __init__(self,
+                 parent=None,
+                 picker_item=None):
+        QtGui.QMainWindow.__init__(self, parent=None)
+        
+        self.picker_item = picker_item
+        
+        # Run setup
+        self.setup()
+        
+    def setup(self):
+        '''Setup window elements
+        '''
+        # Main window setting
+        self.setObjectName(self.__OBJ_NAME__)
+        self.setWindowTitle(self.__TITLE__)
+        self.resize(self.__DEFAULT_WIDTH__, self.__DEFAULT_HEIGHT__)
+        
+        # Set size policies
+#        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+#        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+#        self.setSizePolicy(sizePolicy)
+        
+        # Create main widget
+        self.main_widget = QtGui.QWidget(self)
+        self.main_layout = QtGui.QVBoxLayout(self.main_widget)
+        
+        self.setCentralWidget(self.main_widget)
+        
+        # Add content
+        self.add_position_table()
+        self.add_option_buttons()
+        
+        # Populate table
+        self.populate_table()
+        
+    def add_position_table(self):
+        self.table = QtGui.QTableWidget(self)
+        
+        self.table.setColumnCount(2)
+        self.table.setHorizontalHeaderLabels(['X', 'Y'])
+        
+        self.main_layout.addWidget(self.table)
+    
+    def add_option_buttons(self):
+        '''Add window option buttons
+        '''
+        # Refresh button
+        self.refresh_button = CallbackButton(callback=self.refresh_event)
+        self.refresh_button.setText('Refresh')
+        self.main_layout.addWidget(self.refresh_button)
+        
+    def refresh_event(self):
+        '''Refresh table event
+        '''
+        self.populate_table()
+        
+    def populate_table(self):
+        '''Populate table with X/Y handles position items
+        '''
+        # Clear table
+        while self.table.rowCount():
+            self.table.removeRow(0)
+        
+        # Abort if no pickeritem specified
+        if not self.picker_item:
+            return
+        
+        # Parse handles
+        handles = self.picker_item.get_handles()
+        for i in range(len(handles)):
+            self.table.insertRow(i)
+            spin_box = CallBackDoubleSpinBox(callback=handles[i].setX,
+                                          value=handles[i].x(),
+                                          min=-999)
+            self.table.setCellWidget(i, 0, spin_box)
+            
+            spin_box = CallBackDoubleSpinBox(callback=handles[i].setY,
+                                          value=handles[i].y(),
+                                          min=-999)
+            self.table.setCellWidget(i, 1, spin_box)
+            
+    
 class ItemOptionsWindow(QtGui.QMainWindow):
     '''Child window to edit shape options
     '''
@@ -2481,7 +2591,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
     #-----------------------------------------------------------------------------------------------
     #    constructor
     def __init__(self, parent=None, picker_item=None):
-        QtGui.QWidget.__init__(self, parent=None)
+        QtGui.QMainWindow.__init__(self, parent=None)
         
         self.picker_item = picker_item
         
@@ -2493,6 +2603,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self.setup()
         
         # Other
+        self.handles_window = None
         self.event_disabled = False
         
     def setup(self):
@@ -2540,6 +2651,15 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self._update_ctrls_infos()
         self._update_menus_infos()
     
+    def closeEvent(self, *args, **kwargs):
+        '''Overwriting close event to close child windows too
+        '''
+        # Close child windows
+        if self.handles_window:
+            self.handles_window.close() 
+
+        QtGui.QMainWindow.closeEvent(self, *args, **kwargs)
+        
     def _update_shape_infos(self):
         self.event_disabled = True
         self.handles_cb.setChecked(self.picker_item.get_edit_status())
@@ -2607,6 +2727,11 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         spin_layout.addWidget(self.count_sb)
         
         layout.addLayout(spin_layout)
+        
+        # Add handles position button
+        handles_button = CallbackButton(callback=self.edit_handles_position_event)
+        handles_button.setText('Handles Positions')
+        layout.addWidget(handles_button)
         
         # Add to main layout
         self.left_layout.addWidget(group_box)
@@ -2864,6 +2989,22 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''Toggle edit mode for shape
         '''
         self.picker_item.set_edit_status(value)
+    
+    def edit_handles_position_event(self):
+        
+        # Delete old window 
+        if self.handles_window:
+            self.handles_window.close()
+            self.handles_window.deleteLater()
+            
+        # Init new window
+        self.handles_window = HandlesPositionWindow(parent=self,
+                                                    picker_item=self.picker_item)
+        
+        # Show window
+        self.handles_window.show()
+        self.handles_window.raise_()
+        
         
     def edit_position_event(self, value=0):
         '''Will move polygon based on new values
