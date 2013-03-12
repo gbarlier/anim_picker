@@ -145,14 +145,20 @@ class CallBackSpinBox(QtGui.QSpinBox):
 
 
 class CallBackDoubleSpinBox(QtGui.QDoubleSpinBox):
-    def __init__(self, callback, value=0, *args, **kwargs):
+    def __init__(self,
+                 callback,
+                 value=0,
+                 min=0,
+                 max=9999,
+                 *args,
+                 **kwargs):
         QtGui.QDoubleSpinBox.__init__(self)
         self.callback = callback
         self.args = args
         self.kwargs = kwargs
         
         # Set properties
-        self.setMaximum(999)
+        self.setRange(min, max)
         self.setValue(value)
         
         # Signals
@@ -2626,7 +2632,8 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         spin_layout.addWidget(spin_label)
         
         self.pos_x_sb = CallBackDoubleSpinBox(callback=self.edit_position_event,
-                                              value=position.x())
+                                              value=position.x(),
+                                              min=-9999)
         spin_layout.addWidget(self.pos_x_sb)
         
         layout.addLayout(spin_layout)
@@ -2639,7 +2646,8 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         spin_layout.addWidget(label)
         
         self.pos_y_sb = CallBackDoubleSpinBox(callback=self.edit_position_event,
-                                              value=position.y())
+                                              value=position.y(),
+                                              min=-9999)
         spin_layout.addWidget(self.pos_y_sb)
         
         layout.addLayout(spin_layout)
