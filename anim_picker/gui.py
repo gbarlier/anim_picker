@@ -1625,33 +1625,34 @@ class Polygon(DefaultPolygon):
         # Get polygon path
         path = self.shape()
         
-        # Set node background color
-        color = self.color
+        # Background color
+        color = QtGui.QColor(self.color)
         if self._hovered:
             color = color.lighter(130)
         brush = QtGui.QBrush(color)
         
-        # Paint background
         painter.fillPath(path, brush)
         
-        # Add selected background color feedback
+        # Add white layer color overlay on selected state
         if self.selected:
             color = QtGui.QColor(255,255,255, 50)
-            brush = QtGui.QBrush(color)
-#            brush.setStyle(QtCore.Qt.Dense4Pattern)
-            
+            brush = QtGui.QBrush(color)    
             painter.fillPath(path, brush)
             
-        # Selection boder color feedback
+        # Border status feedback
+        border_pen = QtGui.QPen(self.__DEFAULT_SELECT_COLOR__)
+        border_pen.setWidthF(1.5)
+        
         if self.selected:
-            # Set pen color
-            border_pen = QtGui.QPen(self.__DEFAULT_SELECT_COLOR__)
-            border_pen.setWidthF(2.0)
             painter.setPen(border_pen)
-            
-            # Paint boder
             painter.drawPath(path)
         
+        elif self._hovered:
+            border_pen.setStyle(QtCore.Qt.DashLine)
+            painter.setPen(border_pen)
+            painter.drawPath(path)
+        
+        # Stop her if not in edit mode
         if not self._edit_status:
             return
         
