@@ -2,6 +2,12 @@
 # Author: Guillaume Barlier
 # (c) 2013
 
+# To do:
+#    -rotate shape support
+#    -handle size option
+#    -middle click pan support
+#    -custom script on default left click mouse event instead of selecting associated controls
+
 import os
 from PyQt4 import QtCore, QtGui, QtOpenGL
 import sip
@@ -125,14 +131,19 @@ class CallbackComboBox(QtGui.QComboBox):
         
         
 class CallBackSpinBox(QtGui.QSpinBox):
-    def __init__(self, callback, value=0, *args, **kwargs):
+    def __init__(self,
+                 callback,
+                 value=0,
+                 min=0,
+                 max=9999,
+                 *args, **kwargs):
         QtGui.QSpinBox.__init__(self)
         self.callback = callback
         self.args = args
         self.kwargs = kwargs
         
         # Set properties
-        self.setMaximum(999)
+        self.setRange(min, max)
         self.setValue(value)
         
         # Signals
@@ -864,7 +875,7 @@ class CustomMenuEditDialog(QtGui.QDialog):
 class SearchAndReplaceDialog(QtGui.QDialog):
     '''Search and replace dialog window
     '''
-    __SEARCH_STR__ = 'L_'
+    __SEARCH_STR__ = '^L_'
     __REPLACE_STR__ = 'R_'
     
     def __init__(self, parent=None):
@@ -901,6 +912,8 @@ class SearchAndReplaceDialog(QtGui.QDialog):
         cancel_btn = CallbackButton(callback=self.cancel_event)
         cancel_btn.setText('Cancel')
         btn_layout.addWidget(cancel_btn)
+        
+        ok_btn.setFocus()
         
     def accept_event(self):
         '''Accept button event
@@ -1804,7 +1817,7 @@ class PickerItem(DefaultPolygon):
         # Controls vars
         self.controls = list()
         self.custom_menus = list()
-        
+            
     def shape(self):
         path = QtGui.QPainterPath()
         
@@ -1914,6 +1927,14 @@ class PickerItem(DefaultPolygon):
     
     #===========================================================================
     # Mouse events ---
+    def hoverEnterEvent(self, event=None):
+        '''Update tooltip on hoover with associated controls in edit mode
+        '''
+        if __EDIT_MODE__.get():
+            text = '\n'.join(self.get_controls())
+            self.setToolTip(text)
+        DefaultPolygon.hoverEnterEvent(self, event)
+    
     def mousePressEvent(self, event):
         '''Event called on mouse press
         '''
@@ -1993,20 +2014,35 @@ class PickerItem(DefaultPolygon):
         
         menu.addSeparator()
         
+        # Shape options menu
+        shape_menu = QtGui.QMenu(menu)
+        shape_menu.setTitle('Shape')
+        
         move_action = QtGui.QAction("Move to center", None)
         move_action.triggered.connect(self.move_to_center)
-        menu.addAction(move_action)
+        shape_menu.addAction(move_action)
         
         shp_mirror_action = QtGui.QAction("Mirror shape", None)
         shp_mirror_action.triggered.connect(self.mirror_shape)
-        menu.addAction(shp_mirror_action)
+        shape_menu.addAction(shp_mirror_action)
         
         color_mirror_action = QtGui.QAction("Mirror color", None)
         color_mirror_action.triggered.connect(self.mirror_color)
-        menu.addAction(color_mirror_action)
+        shape_menu.addAction(color_mirror_action)
+        
+        menu.addMenu(shape_menu)
+        
+        move_back_action = QtGui.QAction("Move to back", None)
+        move_back_action.triggered.connect(self.move_to_back)
+        menu.addAction(move_back_action)
+        
+        move_front_action = QtGui.QAction("Move to front", None)
+        move_front_action.triggered.connect(self.move_to_front)
+        menu.addAction(move_front_action)
         
         menu.addSeparator()
         
+        # Copy handling
         copy_action = QtGui.QAction("Copy", None)
         copy_action.triggered.connect(self.copy_event)
         menu.addAction(copy_action)
@@ -2027,16 +2063,7 @@ class PickerItem(DefaultPolygon):
         
         menu.addSeparator()
         
-        move_back_action = QtGui.QAction("Move to back", None)
-        move_back_action.triggered.connect(self.move_to_back)
-        menu.addAction(move_back_action)
-        
-        menu.addSeparator()
-        
-        remove_action = QtGui.QAction("Remove", None)
-        remove_action.triggered.connect(self.remove)
-        menu.addAction(remove_action)
-                
+        # Duplicate options
         duplicate_action = QtGui.QAction("Duplicate", None)
         duplicate_action.triggered.connect(self.duplicate)
         menu.addAction(duplicate_action)
@@ -2044,6 +2071,29 @@ class PickerItem(DefaultPolygon):
         mirror_dup_action = QtGui.QAction("Duplicate/mirror", None)
         mirror_dup_action.triggered.connect(self.duplicate_and_mirror)
         menu.addAction(mirror_dup_action)
+        
+        menu.addSeparator()
+        
+        # Delete
+        remove_action = QtGui.QAction("Remove", None)
+        remove_action.triggered.connect(self.remove)
+        menu.addAction(remove_action)
+        
+        menu.addSeparator()
+        
+        # Control association
+        ctrls_menu = QtGui.QMenu(menu)
+        ctrls_menu.setTitle('Ctrls Association')
+        
+        select_action = QtGui.QAction("Select", None)
+        select_action.triggered.connect(self.select_associated_controls)
+        ctrls_menu.addAction(select_action)
+        
+        replace_action = QtGui.QAction("Replace with selection", None)
+        replace_action.triggered.connect(self.replace_controls_selection)
+        ctrls_menu.addAction(replace_action)
+        
+        menu.addMenu(ctrls_menu)
         
         # Open context menu under mouse
         offseted_pos = event.pos() + QtCore.QPointF(5,0) # offset position to prevent accidental mouse release on menu 
@@ -2326,14 +2376,14 @@ class PickerItem(DefaultPolygon):
         '''
         # Returned controls without namespace (as data stored)
         if not with_namespace:
-            return self.controls
+            return list(self.controls)
         
         # Get namespace
         namespace = self.get_namespace()
         
         # No namespace, return nodes
         if not namespace:
-            return self.controls
+            return list(self.controls)
         
         # Prefix nodes with namespace
         nodes = list()
@@ -2385,6 +2435,24 @@ class PickerItem(DefaultPolygon):
         maya_handlers.select_nodes(self.get_controls(),
                                    modifier=modifier)
     
+    def replace_controls_selection(self):
+        '''Will replace controls association with current selection
+        '''
+        self.set_control_list(list())
+        self.add_selected_controls()
+        
+    def add_selected_controls(self):
+        '''Add selected controls to control list
+        '''
+        # Get selection
+        sel = cmds.ls(sl=True)
+        
+        # Add to stored list
+        for ctrl in sel:
+            if ctrl in self.get_controls():
+                continue
+            self.append_control(ctrl)
+            
     def is_selected(self):
         '''
         Will return True if a related control is currently selected
@@ -2815,7 +2883,8 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         layout.addWidget(label)
         
         self.alpha_sb = CallBackSpinBox(callback=self.change_color_alpha_event,
-                                         value=self.picker_item.get_color().alpha())
+                                         value=self.picker_item.get_color().alpha(),
+                                         max=255)
         layout.addWidget(self.alpha_sb)
         
         # Add to main layout
@@ -2864,7 +2933,8 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         color_layout.addWidget(label)
         
         self.text_alpha_sb = CallBackSpinBox(callback=self.change_text_alpha_event,
-                                         value=self.picker_item.get_text_color().alpha())
+                                         value=self.picker_item.get_text_color().alpha(),
+                                         max=255)
         color_layout.addWidget(self.text_alpha_sb)
 
         # Add color layout to group box layout
@@ -3149,6 +3219,9 @@ class ItemOptionsWindow(QtGui.QMainWindow):
             item = CtrlListWidgetItem(index=i)
             item.setText(controls[i])
             self.control_list.addItem(item)
+            
+        if controls:
+            self.control_list.setCurrentRow(0)
     
     def edit_ctrl_name_event(self, item=None):
         '''Double click event on associated ctrls list
@@ -3176,14 +3249,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
     def add_selected_controls_event(self):
         '''Will add maya selected object to control list
         '''
-        # Get selection
-        sel = cmds.ls(sl=True)
-        
-        # Add to stored list
-        for ctrl in sel:
-            if ctrl in self.picker_item.get_controls():
-                continue
-            self.picker_item.append_control(ctrl)
+        self.picker_item.add_selected_controls()
         
         # Update display
         self._populate_ctrl_list_widget()
@@ -3359,6 +3425,11 @@ class MainDockWindow(QtGui.QDockWidget):
         # Add main widget to window
         self.setWidget(self.main_widget)
         
+#        # Add docking event signal
+#        self.connect(self,
+#                     QtCore.SIGNAL('topLevelChanged(bool)'),
+#                     self.dock_event)
+        
     def reset_default_size(self):
         '''Reset window size to default
         '''
@@ -3450,7 +3521,7 @@ class MainDockWindow(QtGui.QDockWidget):
         '''Return all picker items for current picker
         '''
         return self.tab_widget.get_all_picker_items() 
-    
+        
     def closeEvent(self, *args, **kwargs):
         '''Overwriting close event to close child windows too
         '''
@@ -3540,6 +3611,10 @@ class MainDockWindow(QtGui.QDockWidget):
         if data_node and data_node.exists():
             current_node = data_node.name
         
+        # Save current character in edit mode
+        if __EDIT_MODE__.get() and current_node:
+            self.save_character()
+            
         # Re-populate selector
         self.populate_char_selector()
         
