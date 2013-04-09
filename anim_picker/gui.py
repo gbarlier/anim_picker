@@ -1924,7 +1924,10 @@ class PickerItem(DefaultPolygon):
         # Set current visibility status
         for handle in self.handles:
             handle.setVisible(self.get_edit_status())
-    
+        
+        # Set new point count
+        self.point_count = len(self.handles)
+        
     #===========================================================================
     # Mouse events ---
     def hoverEnterEvent(self, event=None):
@@ -2410,7 +2413,7 @@ class PickerItem(DefaultPolygon):
         # Open Search and replace dialog window
         search, replace, ok = SearchAndReplaceDialog.get()
         if not ok:
-            return
+            return False
         
         # Parse controls
         node_missing = False
@@ -2429,6 +2432,8 @@ class PickerItem(DefaultPolygon):
         # Update list
         self.set_control_list(controls)
         
+        return True
+    
     def select_associated_controls(self, modifier=None):
         '''Will select maya associated controls
         '''       
@@ -3012,13 +3017,20 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         
         btn = CallbackButton(callback=self.add_selected_controls_event)
         btn.setText('Add Selection')
+        btn.setToolTip('Add selected controls to list')
         btn.setMinimumWidth(75)
         btn_layout1.addWidget(btn)
         
         btn = CallbackButton(callback=self.remove_controls_event)
         btn.setText('Remove')
+        btn.setToolTip('Remove selected controls')
         btn.setMinimumWidth(75)
         btn_layout1.addWidget(btn)
+        
+        btn = CallbackButton(callback=self.search_replace_controls_event)
+        btn.setText('Search & Replace')
+        btn.setToolTip('Will search and replace all controls names')
+        layout.addWidget(btn)
         
         self.right_layout.addWidget(group_box)
     
@@ -3220,8 +3232,8 @@ class ItemOptionsWindow(QtGui.QMainWindow):
             item.setText(controls[i])
             self.control_list.addItem(item)
             
-        if controls:
-            self.control_list.setCurrentRow(0)
+#        if controls:
+#            self.control_list.setCurrentRow(0)
     
     def edit_ctrl_name_event(self, item=None):
         '''Double click event on associated ctrls list
@@ -3267,7 +3279,13 @@ class ItemOptionsWindow(QtGui.QMainWindow):
             
         # Update display
         self._populate_ctrl_list_widget()
-              
+    
+    def search_replace_controls_event(self):
+        '''Will search and replace controls names for related picker item
+        '''
+        if self.picker_item.search_and_replace_controls():
+            self._populate_ctrl_list_widget()
+        
     def get_controls_from_list(self):
         '''Return the controls from list widget
         '''
@@ -3460,7 +3478,7 @@ class MainDockWindow(QtGui.QDockWidget):
         self.char_selector_cb.nodes = list()
         
         # Add option buttons
-        btns_layout = QtGui.QHBoxLayout(box)
+        btns_layout = QtGui.QHBoxLayout()
         box_layout.addLayout(btns_layout)
         
         # Add horizont spacer

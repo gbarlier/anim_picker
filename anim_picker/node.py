@@ -43,8 +43,11 @@ class DataNode():
     def _assert_exists(self):
         assert self.exists(), 'Data node "%s" not found.'%self.name
     
+    def is_referenced(self):
+        return cmds.referenceQuery(self.name, inr=True)
+        
     def _assert_not_referenced(self):
-        assert not cmds.referenceQuery(self.name, inr=True), 'Data node "%s" is referenced, and can not be modified.'%self.name
+        assert self.is_referenced, 'Data node "%s" is referenced, and can not be modified.'%self.name
         
     def create(self):
         '''Will create data node
