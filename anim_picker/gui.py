@@ -1093,22 +1093,19 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             gl_format = QtOpenGL.QGLFormat()
             gl_format.setSampleBuffers(True)
             gl_widget = QtOpenGL.QGLWidget(gl_format)
-#            gl_widget = OpenGlWidget(gl_format)
 
-#            # turn off auto swapping of the buffer
-#            gl_widget.setAutoBufferSwap(False)
-      
             # use the GL widget for viewing
             self.setViewport(gl_widget)
             
-        self.setResizeAnchor( self.AnchorViewCenter )
+        self.setResizeAnchor( self.AnchorViewCenter ) 
     
 #        # Set selection mode
 #        self.setRubberBandSelectionMode(QtCore.Qt.IntersectsItemBoundingRect)
 #        self.setDragMode(self.RubberBandDrag)
-#        self.scene_drag_origin = QtCore.QPointF()
-#        self.drag_active = False
-
+        self.scene_mouse_origin = QtCore.QPointF()
+        self.drag_active = False
+        self.pan_active = False
+        
         # Disable scroll bars 
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff);
         self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff);
@@ -1116,10 +1113,14 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         # Set background color
         brush = QtGui.QBrush(QtGui.QColor(70,70,70,255))
         self.setBackgroundBrush(brush)
+    
+    def get_center_pos(self):
+        return self.mapToScene(QtCore.QPoint(self.width()/2, self.height()/2))
         
     def mousePressEvent(self, event):
         '''Overload to clear selection on empty area
         '''
+        print '## mouse press event'
         QtGui.QGraphicsView.mousePressEvent(self, event)
         if event.buttons() == QtCore.Qt.LeftButton:
             scene_pos = self.mapToScene(event.pos())
@@ -1132,17 +1133,36 @@ class GraphicViewWidget(QtGui.QGraphicsView):
                 if not event.modifiers():
                     cmds.select(cl=True)
                 
-#            # Rubber band selection support
-#            self.scene_drag_origin = self.mapToScene(event.pos())
-#            self.drag_active = True            
+        elif event.buttons() == QtCore.Qt.MidButton:
+            self.pan_active = True
+            self.scene_mouse_origin = self.mapToScene(event.pos())
+            
+#        # Rubber band selection support
+#        self.scene_mouse_origin = self.mapToScene(event.pos())
+#        self.drag_active = True            
+    
+    def mouseMoveEvent(self, event):
+        result = QtGui.QGraphicsView.mouseMoveEvent(self, event)
+        
+        if self.pan_active:
+            current_center = self.get_center_pos()
+            scene_paning = self.mapToScene(event.pos())
+            
+            new_center = current_center -(scene_paning -self.scene_mouse_origin)
+            self.centerOn(new_center)
 
-#    def mouseReleaseEvent(self, event):
-#        QtGui.QGraphicsView.mouseReleaseEvent(self, event)
-#  
-#        if(event.button() == QtCore.Qt.LeftButton and self.drag_active):
+        return result
+        
+        
+    def mouseReleaseEvent(self, event):
+        result = QtGui.QGraphicsView.mouseReleaseEvent(self, event)
+        print '## mouse release event'
+
+#        # Area selection
+#        if (self.drag_active and event.button() == QtCore.Qt.LeftButton):
 #            scene_drag_end = self.mapToScene(event.pos())
 #            
-#            sel_area = QtCore.QRectF(self.scene_drag_origin, scene_drag_end)
+#            sel_area = QtCore.QRectF(self.scene_mouse_origin, scene_drag_end)
 #            
 #            transform = self.viewportTransform()
 #            if not sel_area.size().isNull():
@@ -1157,9 +1177,19 @@ class GraphicViewWidget(QtGui.QGraphicsView):
 #                        continue
 #                    picker_items.append(item)
 #                    
-#                print picker_items 
-#  
+#                print picker_items
 #        self.drag_active = False
+        
+        # Middle mouse view panning
+        if (self.pan_active and event.button() == QtCore.Qt.MidButton):
+            current_center = self.get_center_pos()
+            scene_drag_end = self.mapToScene(event.pos())
+            
+            new_center = current_center -(scene_drag_end -self.scene_mouse_origin)
+            self.centerOn(new_center)
+            self.pan_active = False
+    
+        return result
     
     def wheelEvent(self, event):
         '''Wheel event overload to add zoom support
@@ -1174,7 +1204,8 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         
         # Apply zoom
         self.zoom(factor,)
-#                  self.mapToScene(event.pos()))
+                  #self.get_center_pos())
+                  # self.mapToScene(event.pos()))
         
     def zoom(self, factor, center=QtCore.QPointF(0,0)):
         '''Zoom by factor and keep "center" in view
@@ -1223,6 +1254,12 @@ class GraphicViewWidget(QtGui.QGraphicsView):
 #        toggle_mode_action.triggered.connect(self.toggle_mode_event)
 #        menu.addAction(toggle_mode_action)
 
+        menu.addSeparator()
+
+        reset_view_action = QtGui.QAction("Reset view", None)
+        reset_view_action.triggered.connect(self.fit_scene_content)
+        menu.addAction(reset_view_action)
+
         # Open context menu under mouse
         menu.exec_(self.mapToGlobal(event.pos()))
     
@@ -1234,7 +1271,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         
         # Run default resizeEvent
         return QtGui.QGraphicsView.resizeEvent(self, *args, **kwargs)
-    
+        
     def fit_scene_content(self):
         '''Will fit scene content to view, by scaling it
         '''
@@ -1464,21 +1501,28 @@ class PointHandle(DefaultPolygon):
                  y=0,
                  size=8,
                  color=None,
-                 parent=None):
+                 parent=None,
+                 index=0):
         
         DefaultPolygon.__init__(self, parent)
         
-        # make movable
+        
+        # Make movable
         self.setFlag(self.ItemIsMovable)
         self.setFlag(self.ItemSendsScenePositionChanges)
 
+        # Set values
         self.setPos(x, y)
-        
+        self.index = index
         self.size = size
         self.set_color()
+        self.draw_index = False
     
         # Hide by default
         self.setVisible(False)
+        
+        # Add index element
+        self.index = PointHandleIndex(parent=self, index=index)
         
     #===========================================================================
     # Default python methods
@@ -1587,6 +1631,15 @@ class PointHandle(DefaultPolygon):
         factor = QtGui.QTransform().scale(x, y)
         self.setPos(self.pos() * factor)
         self.update()
+    
+    def enable_index_draw(self, status=False):
+        self.index.setVisible(status)
+        
+    def set_index(self, index):
+        self.index.setText(index)
+        
+    def get_index(self):
+        return int(self.index.text())
         
         
 class Polygon(DefaultPolygon):
@@ -1713,8 +1766,52 @@ class Polygon(DefaultPolygon):
         Polygon.__DEFAULT_COLOR__ = color 
         
 
-class GraphicText(QtGui.QGraphicsSimpleTextItem):
+class PointHandleIndex(QtGui.QGraphicsSimpleTextItem):
+    '''Point handle index text element
     '''
+    __DEFAULT_COLOR__ = QtGui.QColor(200,75,75,255)
+    
+    def __init__(self, parent=None, scene=None, index=0):
+        QtGui.QGraphicsSimpleTextItem.__init__(self, parent, scene)
+        
+        # Counter view scale
+        self.scale_transform = QtGui.QTransform().scale(1, -1)
+        self.setTransform(self.scale_transform)
+        
+        # Init defaults
+        self.set_size()
+        self.set_color(PointHandleIndex.__DEFAULT_COLOR__)
+        self.setPos(QtCore.QPointF(-12,12))
+        
+        # Hide by default
+        self.setVisible(False)
+        
+        self.setText(index)
+        
+    def set_size(self, value=8.0):
+        '''Set pointSizeF for text
+        '''
+        font = self.font()
+        font.setPointSizeF(value)
+        self.setFont(font)
+    
+    def set_color(self, color=None):
+        '''Set text color
+        '''
+        if not color:
+            return
+        brush = self.brush()
+        brush.setColor(color)
+        self.setBrush(brush)
+        
+    def setText(self, text):
+        '''Override default setText method to force unicode on int index input
+        '''
+        return QtGui.QGraphicsSimpleTextItem.setText(self, unicode(text))
+        
+        
+class GraphicText(QtGui.QGraphicsSimpleTextItem):
+    '''Picker item text element
     '''
     __DEFAULT_COLOR__ = QtGui.QColor(30,30,30,255)
     
@@ -1873,7 +1970,7 @@ class PickerItem(DefaultPolygon):
         for i in range(0, self.point_count):
             x = sin(i * angle_step + pi/self.point_count) * unit_scale
             y = cos(i * angle_step + pi/self.point_count) * unit_scale
-            handle = PointHandle(x=x, y=y, parent=self)
+            handle = PointHandle(x=x, y=y, parent=self, index=i+1)
             handles.append(handle)
             
         # Circle case
@@ -1910,12 +2007,14 @@ class PickerItem(DefaultPolygon):
         
         # Parse input type
         new_handles = list()
+        index = 1 # start index at 1 since table Widget raw are indexed at 1
         for handle in handles:
             if isinstance(handle, (list, tuple)):
-                handle = PointHandle(x=handle[0], y=handle[1], parent=self)
+                handle = PointHandle(x=handle[0], y=handle[1], parent=self, index=index)
             elif hasattr(handle, 'x') and hasattr(handle, 'y'):
-                handle = PointHandle(x=handle.x(), y=handle.y(), parent=self)
+                handle = PointHandle(x=handle.x(), y=handle.y(), parent=self, index=index)
             new_handles.append(handle)
+            index +=1
             
         # Update handles list
         self.handles = new_handles
@@ -2654,6 +2753,24 @@ class HandlesPositionWindow(QtGui.QMainWindow):
                                           min=-999)
             self.table.setCellWidget(i, 1, spin_box)
             
+    def display_handles_index(self, status=True):
+        '''Display related picker handles index
+        '''
+        for handle in self.picker_item.get_handles():
+            handle.enable_index_draw(status)
+    
+    def close(self, *args, **kwargs):
+        '''Override default close function to hide related picker handles index
+        '''
+        self.display_handles_index(status=False)
+        return QtGui.QMainWindow.close(self, *args, **kwargs)
+            
+    def show(self, *args, **kwargs):
+        '''Override default show function to display related picker handles index
+        '''
+        self.display_handles_index(status=True)
+        return QtGui.QMainWindow.show(self, *args, **kwargs)
+        
     
 class ItemOptionsWindow(QtGui.QMainWindow):
     '''Child window to edit shape options
@@ -3824,21 +3941,19 @@ class MainDockWindow(QtGui.QDockWidget):
 #===============================================================================
 # Load user interface function
 #===============================================================================
-def load(edit=False):
+def load(edit=False, multi=True):
     '''Load ui for gb_skin_weights scripts
     '''
     # Check if window already exists
-#    dock_pt = OpenMayaUI.MQtUtil.findControl(MainDockWindow.__OBJ_NAME__)
-#    if dock_pt:
-#        # Get dock qt instance
-#        dock_widget = sip.wrapinstance(long(dock_pt), QtCore.QObject)
-#        dock_widget.show()
-#        dock_widget.raise_()
-#        
-#        # Reload container selector
-##        dock_widget.refresh()
-#        
-#        return dock_widget
+    if not multi:
+        dock_pt = OpenMayaUI.MQtUtil.findControl(MainDockWindow.__OBJ_NAME__)
+        if dock_pt:
+            # Get dock qt instance
+            dock_widget = sip.wrapinstance(long(dock_pt), QtCore.QObject)
+            dock_widget.show()
+            dock_widget.raise_()
+    
+            return dock_widget
     
     # Init UI
     dock_widget = MainDockWindow(parent=get_maya_window(),
