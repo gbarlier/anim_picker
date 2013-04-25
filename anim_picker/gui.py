@@ -245,7 +245,23 @@ class CallbackCheckBoxWidget(QtGui.QCheckBox):
             return
         self.kwargs['value'] = value
         self.callback(*self.args, **self.kwargs) 
+
+
+class CallbackRadioButtonWidget(QtGui.QRadioButton):
+    '''Dynamic callback radioButton
+    '''
+    def __init__(self, name_value, callback, checked=False):
+        QtGui.QRadioButton.__init__(self)
+        self.name_value = name_value
+        self.callback = callback
         
+        self.setChecked(checked)
+            
+        self.connect(self, QtCore.SIGNAL("clicked()"), self.click_event)
+        
+    def click_event(self):
+        self.callback(self.name_value)
+                
 
 class CtrlListWidgetItem(QtGui.QListWidgetItem):
     '''
@@ -503,7 +519,16 @@ class SnapshotWidget(BackgroundWidget):
         self.setFixedHeight(80)
         
         self.set_background()
+        
+        self.setToolTip('Click here to Open About/Help window')
     
+    def mousePressEvent(self, event):
+        '''Override default mouse press event to open about window
+        '''
+        BackgroundWidget.mousePressEvent(self, event)
+        if event.buttons() == QtCore.Qt.LeftButton:
+            self.show_about_window()
+        
     def _get_default_snapshot(self, name='undefined'):
         '''Return default snapshot
         '''
@@ -577,7 +602,15 @@ class SnapshotWidget(BackgroundWidget):
         '''
         return self.background
         
-
+    def show_about_window(self):
+        '''Open animation picker about and help child window
+        '''
+        # Init new window
+        window = AboutWindow(parent=self.parentWidget())
+        
+        # Show window
+        window.show()
+        window.raise_()
 
 #===============================================================================
 # New code ---
@@ -636,6 +669,10 @@ class DataCopyDialog(QtGui.QDialog):
     __STATES__.append(__DO_POS__)
     __DO_COLOR__ = State(True, 'color')
     __STATES__.append(__DO_COLOR__)
+    __DO_ACTION_MODE__ = State(True, 'action_mode')
+    __STATES__.append(__DO_ACTION_MODE__)
+    __DO_ACTION_SCRIPT__ = State(True, 'action_script')
+    __STATES__.append(__DO_ACTION_SCRIPT__)
     __DO_HANDLES__ = State(True, 'handles')
     __STATES__.append(__DO_HANDLES__)
     __DO_TEXT__ = State(True, 'text')
@@ -754,23 +791,26 @@ class DataCopyDialog(QtGui.QDialog):
         
         return data
     
+
+class CustomScriptEditDialog(QtGui.QDialog):
+    '''Custom python script window (used for custom picker item action and context menu)
+    '''
+    __TITLE__ = 'Custom script'
     
-class CustomMenuEditDialog(QtGui.QDialog):
     def __init__(self,
                  parent=None,
-                 name=None,
                  cmd=None,
                  item=None):
         QtGui.QDialog.__init__(self, parent)
         
-        self.name = name
         self.cmd = cmd
         self.picker_item = item
         
         self.apply = False
         self.setup()
     
-    def get_default_script(self):
+    @staticmethod
+    def get_default_script():
         '''
         '''
         text = '# Custom python script window\n'
@@ -781,24 +821,10 @@ class CustomMenuEditDialog(QtGui.QDialog):
     def setup(self):
         '''Build/Setup the dialog window
         '''
-        self.setWindowTitle('Custom Menu')
+        self.setWindowTitle(self.__TITLE__)
         
         # Add layout
         self.main_layout = QtGui.QVBoxLayout(self)
-        
-        # Add name line edit
-        name_layout = QtGui.QHBoxLayout(self)
-        
-        label = QtGui.QLabel()
-        label.setText('Name')
-        name_layout.addWidget(label)
-        
-        self.name_widget = QtGui.QLineEdit()
-        if self.name:
-            self.name_widget.setText(self.name)
-        name_layout.addWidget(self.name_widget)
-        
-        self.main_layout.addLayout(name_layout)
         
         # Add cmd txt field
         self.cmd_widget = QtGui.QTextEdit()
@@ -855,6 +881,62 @@ class CustomMenuEditDialog(QtGui.QDialog):
     def get_values(self):
         '''Return dialog window result values 
         '''
+        cmd_str = unicode(self.cmd_widget.toPlainText())
+        
+        return cmd_str, self.apply
+    
+    @classmethod
+    def get(cls, cmd=None, item=None):
+        '''
+        Default method used to run the dialog input window
+        Will open the dialog window and return input texts.
+        '''
+        win = cls(cmd=cmd, item=item)
+        win.exec_()
+        win.raise_()
+        return win.get_values()
+        
+
+class CustomMenuEditDialog(CustomScriptEditDialog):
+    '''Custom python script window for picker item context menu
+    '''
+    __TITLE__ = 'Custom Menu'
+    
+    def __init__(self,
+                 parent=None,
+                 name=None,
+                 cmd=None,
+                 item=None):
+        
+        self.name = name
+        CustomScriptEditDialog.__init__(self,
+                                        parent=parent,
+                                        cmd=cmd,
+                                        item=item)
+        
+    def setup(self):
+        '''Add name field to default window setup
+        '''
+        # Run default setup
+        CustomScriptEditDialog.setup(self)
+        
+        # Add name line edit
+        name_layout = QtGui.QHBoxLayout(self)
+        
+        label = QtGui.QLabel()
+        label.setText('Name')
+        name_layout.addWidget(label)
+        
+        self.name_widget = QtGui.QLineEdit()
+        if self.name:
+            self.name_widget.setText(self.name)
+        name_layout.addWidget(self.name_widget)
+        
+        self.main_layout.insertLayout(0, name_layout)
+            
+    def get_values(self):
+        '''Return dialog window result values 
+        '''
         name_str = unicode(self.name_widget.text())
         cmd_str = unicode(self.cmd_widget.toPlainText())
         
@@ -870,7 +952,7 @@ class CustomMenuEditDialog(QtGui.QDialog):
         win.exec_()
         win.raise_()
         return win.get_values()
-
+    
 
 class SearchAndReplaceDialog(QtGui.QDialog):
     '''Search and replace dialog window
@@ -1120,7 +1202,6 @@ class GraphicViewWidget(QtGui.QGraphicsView):
     def mousePressEvent(self, event):
         '''Overload to clear selection on empty area
         '''
-        print '## mouse press event'
         QtGui.QGraphicsView.mousePressEvent(self, event)
         if event.buttons() == QtCore.Qt.LeftButton:
             scene_pos = self.mapToScene(event.pos())
@@ -1156,7 +1237,6 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         
     def mouseReleaseEvent(self, event):
         result = QtGui.QGraphicsView.mouseReleaseEvent(self, event)
-        print '## mouse release event'
 
 #        # Area selection
 #        if (self.drag_active and event.button() == QtCore.Qt.LeftButton):
@@ -1876,8 +1956,8 @@ class GraphicText(QtGui.QGraphicsSimpleTextItem):
         '''
         center_pos = self.boundingRect().center()
         self.setPos(-center_pos * self.scale_transform)
-        
-        
+
+    
 class PickerItem(DefaultPolygon):
     '''Main picker graphic item container
     '''
@@ -1915,6 +1995,10 @@ class PickerItem(DefaultPolygon):
         self.controls = list()
         self.custom_menus = list()
             
+        # Custom action
+        self.custom_action = False
+        self.custom_action_script = None
+        
     def shape(self):
         path = QtGui.QPainterPath()
         
@@ -2046,7 +2130,12 @@ class PickerItem(DefaultPolygon):
 
         # Run selection on left mouse button event
         if event.buttons() == QtCore.Qt.LeftButton:
-            self.mouse_press_select_event(event)
+            # Run custom script action
+            if self.get_custom_action_mode():
+                self.mouse_press_custom_action(event)
+            # Run default selection action
+            else:
+                self.mouse_press_select_event(event)
             
         # Set focus to maya window
         maya_window = get_maya_window()
@@ -2077,6 +2166,13 @@ class PickerItem(DefaultPolygon):
         # Call action
         self.select_associated_controls(modifier=modifier)
 
+    def mouse_press_custom_action(self, event):
+        '''Custom script action on mouse press
+        '''
+        # Run custom action script with picker item environnement
+        python_handlers.safe_code_exec(self.get_custom_action_script(),
+                                       env=self.get_exec_env())
+        
     def mouseDoubleClickEvent(self, event):
         '''Event called when mouse is double clicked
         '''
@@ -2462,6 +2558,20 @@ class PickerItem(DefaultPolygon):
         self.update() 
         
     #===========================================================================
+    # Custom action handling ---
+    def get_custom_action_mode(self):
+        return self.custom_action
+    
+    def set_custom_action_mode(self, state):
+        self.custom_action = state
+        
+    def set_custom_action_script(self, cmd):
+        self.custom_action_script = cmd
+    
+    def get_custom_action_script(self):
+        return self.custom_action_script
+    
+    #===========================================================================
     # Controls handling ---
     def get_namespace(self):
         '''Will return associated namespace
@@ -2612,7 +2722,12 @@ class PickerItem(DefaultPolygon):
         # Set handles
         if 'handles' in data:
             self.set_handles(data['handles'])
-            
+        
+        # Set action mode
+        if data.get('action_mode', False):
+            self.set_custom_action_mode(True)
+            self.set_custom_action_script(data.get('action_script', None))
+        
         # Set controls
         if 'controls' in data:
             self.set_control_list(data['controls'])
@@ -2645,6 +2760,11 @@ class PickerItem(DefaultPolygon):
         for handle in self.handles:
             handles_data.append([handle.x(), handle.y()])
         data['handles'] = handles_data
+        
+        # Add mode data
+        if self.get_custom_action_mode():
+            data['action_mode'] = True 
+            data['action_script'] = self.get_custom_action_script()
         
         # Add controls data
         if self.get_controls():
@@ -2819,6 +2939,10 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self.right_layout = QtGui.QHBoxLayout()
         self.main_layout.addLayout(self.right_layout)
         
+        self.control_layout = QtGui.QVBoxLayout()
+        self.control_layout.setContentsMargins(0,0,0,0)
+        self.right_layout.addLayout(self.control_layout)
+        
         self.setCentralWidget(self.main_widget)
         
         # Add content
@@ -2827,6 +2951,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self.add_color_options()
         self.add_scale_options()
         self.add_text_options()
+        self.add_action_mode_field()
         self.add_target_control_field()
         self.add_custom_menus_field()
         
@@ -2881,7 +3006,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self._set_text_color_button(self.picker_item.get_text_color())
         self.text_alpha_sb.setValue(self.picker_item.get_text_color().alpha())
         self.event_disabled = False
-        
+    
     def _update_ctrls_infos(self):
         self._populate_ctrl_list_widget()
     
@@ -3112,6 +3237,40 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         
         # Add to main left layout
         self.left_layout.addWidget(group_box)
+    
+    def add_action_mode_field(self):
+        '''Add custom action mode field group box
+        '''
+        # Create group box
+        group_box = QtGui.QGroupBox()
+        group_box.setTitle('Action Mode')
+        
+        # Add layout
+        layout = QtGui.QVBoxLayout(group_box)
+        
+        # Add default select mode radio button
+        default_rad = CallbackRadioButtonWidget('default',
+                                                self.mode_radio_event,
+                                                checked=not self.picker_item.get_custom_action_mode())
+        default_rad.setText('Default action (select)')
+        default_rad.setToolTip('Run default selection action on related controls')
+        layout.addWidget(default_rad)
+        
+        # Add custom action script radio button
+        custom_rad = CallbackRadioButtonWidget('custom',
+                                               self.mode_radio_event,
+                                               checked=self.picker_item.get_custom_action_mode())
+        custom_rad.setText('Custom action (script)')
+        custom_rad.setToolTip('Change mode to run a custom action script')
+        layout.addWidget(custom_rad)
+        
+        # Add edit custom script button
+        custom_script_btn = CallbackButton(callback=self.edit_custom_action_script)
+        custom_script_btn.setText('Edit Action script')
+        custom_script_btn.setToolTip('Open custom action script edit window')
+        layout.addWidget(custom_script_btn)
+        
+        self.control_layout.addWidget(group_box)
         
     def add_target_control_field(self):
         '''Add target control association group box
@@ -3149,7 +3308,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         btn.setToolTip('Will search and replace all controls names')
         layout.addWidget(btn)
         
-        self.right_layout.addWidget(group_box)
+        self.control_layout.addWidget(group_box)
     
     def add_custom_menus_field(self):
         '''Add custom menu management groupe box
@@ -3333,7 +3492,32 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         
         # Update color
         self.picker_item.set_text_color(color)
+    
+    #===========================================================================
+    # Custom action management
+    def mode_radio_event(self, mode):
+        '''Action mode change event
+        '''
+        # Skip if event is disabled (updating ui value)
+        if self.event_disabled:
+            return
         
+        if mode == 'default':
+            self.picker_item.custom_action = False
+            
+        elif mode == 'custom':
+            self.picker_item.custom_action = True
+         
+    def edit_custom_action_script(self):
+        
+        # Open input window
+        cmd, ok = CustomScriptEditDialog.get(cmd=self.picker_item.custom_action_script,
+                                             item=self.picker_item)
+        if not (ok and cmd):
+            return
+        
+        self.picker_item.set_custom_action_script(cmd)
+    
     #===========================================================================
     # Control management
     def _populate_ctrl_list_widget(self):
@@ -3505,10 +3689,45 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         # Update display
         self._populate_menu_list_widget()
         
-    
+
+class AboutWindow(QtGui.QMainWindow):
+    '''Create Help/About window for animation picker tool'''
+    #-----------------------------------------------------------------------------------------------
+    #    constructor
+    def __init__(self, parent=None):
+        QtGui.QWidget.__init__(self, parent)
+        self.setup(self)
+        
+    def setup(self, window):
+        window.setWindowTitle('About anim_picker tool')
+        window.resize(270, 140)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHeightForWidth(window.sizePolicy().hasHeightForWidth())
+        window.setSizePolicy(sizePolicy)
+        window.setMinimumSize(QtCore.QSize(270, 140))
+        self.centralwidget = QtGui.QWidget(window)
+        self.centralwidget.setGeometry(QtCore.QRect(0, 0, 270, 140))
+
+        mainLayout  =   QtGui.QVBoxLayout(self.centralwidget)
+        
+        #    add label
+        label = QtGui.QLabel()
+        label.setText(self.get_text())
+        mainLayout.addWidget(label)
+        
+    def get_text(self):
+        text = '''anim_picker 
+        04/2013
+        
+        Author: Guillaume Barlier
+        http://guillaume.barlier.com
+        
+        '''
+        return text
+            
 class MainDockWindow(QtGui.QDockWidget):
     __OBJ_NAME__ = 'ctrl_picker_window'
-    __TITLE__ = 'Ctrl Picker'
+    __TITLE__ = 'Anim Picker'
     
     def __init__(self,
                  parent=get_maya_window(),
@@ -3632,7 +3851,7 @@ class MainDockWindow(QtGui.QDockWidget):
             self.save_char_btn.setFixedWidth(40)
         
             btns_layout.addWidget(self.save_char_btn)
-            
+
         # Create character picture widget
         self.pic_widget = SnapshotWidget()
         layout.addWidget(self.pic_widget)
@@ -3687,7 +3906,7 @@ class MainDockWindow(QtGui.QDockWidget):
         
         # Add script jobs
         self.add_script_jobs()
-
+    
     #===========================================================================
     # Character selector handlers ---
     def selector_change_event(self, index):
