@@ -1,6 +1,8 @@
+# Copyright (c) 2012-2013 Guillaume Barlier
+# This file is part of "anim_picker" and covered by the LGPLv3 or later,
+# read COPYING and COPYING.LESSER for details.
+
 # PyQt4 user interface for anim_picker
-# Author: Guillaume Barlier
-# (c) 2013
 
 # To do:
 #    -rotate shape support
