@@ -1155,7 +1155,7 @@ class AxedGraphicsScene(QtGui.QGraphicsScene):
                              0, self.___DEFAULT_SIZE__)
         return line
 
-        
+
 class GraphicViewWidget(QtGui.QGraphicsView):
     '''Graphic view widget that display the "polygons" picker items 
     '''
@@ -1197,7 +1197,8 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         # Set background color
         brush = QtGui.QBrush(QtGui.QColor(70,70,70,255))
         self.setBackgroundBrush(brush)
-    
+        self.background_image = None
+        
     def get_center_pos(self):
         return self.mapToScene(QtCore.QPoint(self.width()/2, self.height()/2))
         
@@ -1390,9 +1391,6 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             
             # Set item status    
             item.set_edit_status(new_status)
-    
-    def set_background_event(self, event=None):
-        pass
 
     def toggle_mode_event(self, event=None):
         '''Will toggle UI edition mode
@@ -1409,55 +1407,43 @@ class GraphicViewWidget(QtGui.QGraphicsView):
 #        self.parentWidget().reset_default_size()
 #        self.parentWidget().refresh()
     
-#    def set_background(self, index, path=None):
-#        '''Set tab index widget background image
-#        '''
-#        # Get widget for tab index
-#        widget = self.widget(index)
-#        widget.set_background(path)
-#        
-#        # Update data
-#        if not path:
-#            self.get_current_data().tabs[index].background = None
-#        else:
-#            self.get_current_data().tabs[index].background = unicode(path)
-#    
-#    def set_background_event(self, event=None):
-#        '''Set background image pick dialog window
-#        '''
-#        # Open file dialog
-#        file_path = QtGui.QFileDialog.getOpenFileName(self,
-#                                                      'Choose picture',
-#                                                      get_images_folder_path())
-#        
-#        # Abort on cancel
-#        if not file_path:
-#            return
-#        
-#        # Get current index
-#        index = self.currentIndex()
-#        
-#        # Set background
-#        self.set_background(index, file_path)
-#    
-#    def reset_background_event(self, event=None):
-#        '''Reset background to default
-#        '''
-#        # Get current index
-#        index = self.currentIndex()
-#        
-#        # Set background
-#        self.set_background(index, path=None)
-#        
-#    def get_background(self, index):
-#        '''Return background for tab index
-#        '''
-#        # Get current index
-#        index = self.currentIndex()
-#        
-#        # Get background
-#        widget = self.widget(index)
-#        return widget.background
+    def set_background(self, path=None):
+        '''Set tab index widget background image
+        '''
+        # Check that path exists
+        if not os.path.exists(path):
+            print '# background image not found: "%s"'%path
+            return
+        
+        # Load image and mirror it vertically
+        self.background_image = QtGui.QImage(path).mirrored(False, True)
+        self.update()
+        
+    def set_background_event(self, event=None):
+        '''Set background image pick dialog window
+        '''
+        # Open file dialog
+        file_path = QtGui.QFileDialog.getOpenFileName(self,
+                                                      'Choose a background',
+                                                      get_images_folder_path())
+        
+        # Abort on cancel
+        if not file_path:
+            return
+        
+        # Set background
+        self.set_background(file_path)
+    
+    def reset_background_event(self, event=None):
+        '''Reset background to default
+        '''
+        self.background_image = None
+        self.update()
+
+    def get_background(self, index):
+        '''Return background for tab index
+        '''
+        return self.background_image
     
     def clear(self):
         '''Clear view, by replacing scene with a new one
@@ -1498,7 +1484,18 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         for item_data in data:
             item = self.add_picker_item()
             item.set_data(item_data)
+
+    def drawBackground(self, painter, rect):
+        result = QtGui.QGraphicsView.drawBackground(self, painter, rect)
+        if not self.background_image:
+            return result
         
+        painter.drawImage(self.sceneRect(),
+                          self.background_image,
+                          QtCore.QRectF(self.background_image.rect()))
+        
+        return result
+            
         
 class DefaultPolygon(QtGui.QGraphicsObject):
     '''Default polygon class, with move and hover support
