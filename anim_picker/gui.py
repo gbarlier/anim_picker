@@ -1042,17 +1042,28 @@ class AxedGraphicsScene(QtGui.QGraphicsScene):
     
     Had to add z_index support since there was a little z conflict when "moving" items to back/front in edit mode 
     '''
-    ___DEFAULT_SIZE__ = 200
+    __DEFAULT_SCENE_WIDTH__ = 400
+    __DEFAULT_SCENE_HEIGHT__ = 600
     
     def __init__(self, parent=None):
         QtGui.QGraphicsScene.__init__(self, parent=parent)
         
+        self.set_default_size()
         self._z_index = 0
         
         self.x_axis_line = None
         self.y_axis_line = None
         
         self.add_axis_lines()
+    
+    def set_size(self, width, heith):
+        '''Will set scene size with proper center position
+        '''
+        self.setSceneRect( -width/2, -heith/2, width, heith )
+    
+    def set_default_size(self):
+        self.set_size(self.__DEFAULT_SCENE_WIDTH__,
+                      self.__DEFAULT_SCENE_HEIGHT__)
     
     def clear(self):
         '''Reset default z index on clear
@@ -1144,27 +1155,30 @@ class AxedGraphicsScene(QtGui.QGraphicsScene):
     def get_x_line(self):
         '''Return x axis QLineF
         '''
-        line = QtCore.QLineF(-self.___DEFAULT_SIZE__, 0,
-                             self.___DEFAULT_SIZE__, 0)
+        line = QtCore.QLineF(-self.__DEFAULT_SCENE_WIDTH__/2, 0,
+                             self.__DEFAULT_SCENE_WIDTH__/2, 0)
         return line
     
     def get_y_line(self):
         '''Return y axis QLineF
         '''
-        line = QtCore.QLineF(0, -self.___DEFAULT_SIZE__,
-                             0, self.___DEFAULT_SIZE__)
+        line = QtCore.QLineF(0, -self.__DEFAULT_SCENE_HEIGHT__/2,
+                             0, self.__DEFAULT_SCENE_HEIGHT__/2)
         return line
 
 
 class GraphicViewWidget(QtGui.QGraphicsView):
     '''Graphic view widget that display the "polygons" picker items 
     '''
+    __DEFAULT_SCENE_WIDTH__ = 400
+    __DEFAULT_SCENE_HEIGHT__ = 600
+    
     def __init__(self,
                  namespace=None):
         QtGui.QGraphicsView.__init__(self)
         
         self.setScene(AxedGraphicsScene())
-        self.scene().setSceneRect( -200,-300, 400, 600 )
+        
         
         self.namespace = namespace
         
@@ -1198,6 +1212,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         brush = QtGui.QBrush(QtGui.QColor(70,70,70,255))
         self.setBackgroundBrush(brush)
         self.background_image = None
+        self.background_image_path = None
         
     def get_center_pos(self):
         return self.mapToScene(QtCore.QPoint(self.width()/2, self.height()/2))
@@ -1321,15 +1336,15 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         toggle_handles_action.triggered.connect(self.toggle_all_handles_event)
         menu.addAction(toggle_handles_action)
         
-#        menu.addSeparator()
-#        
-#        background_action = QtGui.QAction("Set background image", None)
-#        background_action.triggered.connect(self.set_background_event)
-#        menu.addAction(background_action)
-#        
-#        reset_background_action = QtGui.QAction("Reset background", None)
-#        reset_background_action.triggered.connect(self.set_background_event)
-#        menu.addAction(reset_background_action)
+        menu.addSeparator()
+        
+        background_action = QtGui.QAction("Set background image", None)
+        background_action.triggered.connect(self.set_background_event)
+        menu.addAction(background_action)
+        
+        reset_background_action = QtGui.QAction("Reset background", None)
+        reset_background_action.triggered.connect(self.reset_background_event)
+        menu.addAction(reset_background_action)
 #        
 #        menu.addSeparator()
 #        
@@ -1415,8 +1430,17 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             print '# background image not found: "%s"'%path
             return
         
+        self.background_image_path = unicode(path)
+        
         # Load image and mirror it vertically
         self.background_image = QtGui.QImage(path).mirrored(False, True)
+        
+        # Set scene size to background picture
+        width = self.background_image.width()
+        height = self.background_image.height()
+        self.scene().set_size(width, height)
+        
+        # Update display
         self.update()
         
     def set_background_event(self, event=None):
@@ -1438,6 +1462,8 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         '''Reset background to default
         '''
         self.background_image = None
+        self.background_image_path = None
+        self.scene().set_default_size()
         self.update()
 
     def get_background(self, index):
@@ -1472,16 +1498,33 @@ class GraphicViewWidget(QtGui.QGraphicsView):
     def get_data(self):
         '''Return view data
         '''
-        data = list()
+        data = dict()
+        
+        # Add background to data
+        if self.background_image_path:
+            data['background'] = self.background_image_path
+        
+        # Add items to data
+        items = list()
         for item in self.get_picker_items():
-            data.append(item.get_data())
+            items.append(item.get_data())
+        if items:
+            data['items'] = items
+        
         return data
         
     def set_data(self, data):
         '''Set/load view data
         '''
         self.clear()
-        for item_data in data:
+        
+        # Set backgraound picture
+        background = data.get('background', None)
+        if background:
+            self.set_background(background)
+        
+        # Add items to view
+        for item_data in data.get('items', list()):
             item = self.add_picker_item()
             item.set_data(item_data)
 
