@@ -1038,7 +1038,7 @@ class SearchAndReplaceDialog(QtGui.QDialog):
         return win.get_values()
 
         
-class AxedGraphicsScene(QtGui.QGraphicsScene):
+class OrderedGraphicsScene(QtGui.QGraphicsScene):
     '''
     Custom QGraphicsScene with x/y axis line options for origin feedback in edition mode
     (provides a center reference to work from, view will fit what ever is the content in use mode).
@@ -1053,11 +1053,6 @@ class AxedGraphicsScene(QtGui.QGraphicsScene):
         
         self.set_default_size()
         self._z_index = 0
-        
-        self.x_axis_line = None
-        self.y_axis_line = None
-        
-        self.add_axis_lines()
     
     def set_size(self, width, heith):
         '''Will set scene size with proper center position
@@ -1129,71 +1124,7 @@ class AxedGraphicsScene(QtGui.QGraphicsScene):
         '''    
         QtGui.QGraphicsScene.addItem(self, item)
         self.set_z_value(item)
-        self.move_axis_line_to_front()
         
-    def move_axis_line_to_front(self):
-        '''Move axis lines to front, to appear on top of every other scene item
-        '''
-        # Move to temp scene
-        tmp_scene = QtGui.QGraphicsScene()
-        
-        if self.x_axis_line:
-            tmp_scene.addItem(self.x_axis_line)
-            QtGui.QGraphicsScene.addItem(self, self.x_axis_line)
-            self.x_axis_line.setZValue(self._z_index+0.1)
-        
-        if self.y_axis_line:
-            tmp_scene.addItem(self.y_axis_line)
-            QtGui.QGraphicsScene.addItem(self, self.y_axis_line)
-            self.y_axis_line.setZValue(self._z_index+0.2)
-            
-        # Clean
-        tmp_scene.deleteLater()
-    
-    def add_axis_lines(self):
-        return
-        if __EDIT_MODE__.get():
-            self.add_x_axis()
-            self.add_y_axis()
-             
-    def add_x_axis(self):
-        '''Add x axis doted line item to scene
-        '''
-        self.x_axis_line = QtGui.QGraphicsLineItem(self.get_x_line())
-        self.set_line_properties(self.x_axis_line)
-        self.addItem(self.x_axis_line)
-        return self.x_axis_line
-    
-    def add_y_axis(self):
-        '''Add y axis doted line item to scene
-        '''
-        self.y_axis_line = QtGui.QGraphicsLineItem(self.get_y_line())
-        self.set_line_properties(self.y_axis_line)
-        self.addItem(self.y_axis_line)
-        return self.y_axis_line
-        
-    def set_line_properties(self, line_item):
-        '''set proper paint properties for axis line item
-        '''
-        pen = QtGui.QPen(QtGui.QColor(160,160,160,120),
-                         1,
-                         QtCore.Qt.DashLine)
-        line_item.setPen(pen)
-    
-    def get_x_line(self):
-        '''Return x axis QLineF
-        '''
-        line = QtCore.QLineF(-self.__DEFAULT_SCENE_WIDTH__/2, 0,
-                             self.__DEFAULT_SCENE_WIDTH__/2, 0)
-        return line
-    
-    def get_y_line(self):
-        '''Return y axis QLineF
-        '''
-        line = QtCore.QLineF(0, -self.__DEFAULT_SCENE_HEIGHT__/2,
-                             0, self.__DEFAULT_SCENE_HEIGHT__/2)
-        return line
-    
 
 class GraphicViewWidget(QtGui.QGraphicsView):
     '''Graphic view widget that display the "polygons" picker items 
@@ -1205,7 +1136,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
                  namespace=None):
         QtGui.QGraphicsView.__init__(self)
         
-        self.setScene(AxedGraphicsScene())
+        self.setScene(OrderedGraphicsScene())
         
         
         self.namespace = namespace
@@ -1502,7 +1433,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         '''Clear view, by replacing scene with a new one
         '''
         old_scene = self.scene()
-        self.setScene(AxedGraphicsScene())
+        self.setScene(OrderedGraphicsScene())
         old_scene.deleteLater()
         
     def get_picker_items(self):
