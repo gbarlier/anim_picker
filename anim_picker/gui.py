@@ -526,14 +526,7 @@ class SnapshotWidget(BackgroundWidget):
         self.set_background()
         
         self.setToolTip('Click here to Open About/Help window')
-    
-    def mousePressEvent(self, event):
-        '''Override default mouse press event to open about window
-        '''
-        BackgroundWidget.mousePressEvent(self, event)
-        if event.buttons() == QtCore.Qt.LeftButton:
-            self.show_about_window()
-        
+
     def _get_default_snapshot(self, name='undefined'):
         '''Return default snapshot
         '''
@@ -606,16 +599,7 @@ class SnapshotWidget(BackgroundWidget):
         '''Return snapshot picture path 
         '''
         return self.background
-        
-    def show_about_window(self):
-        '''Open animation picker about and help child window
-        '''
-        # Init new window
-        window = AboutWindow(parent=self.parentWidget())
-        
-        # Show window
-        window.show()
-        window.raise_()
+
 
 #===============================================================================
 # New code ---
@@ -1262,7 +1246,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         # Apply zoom
         self.zoom(factor,)
                   #self.get_center_pos())
-                  # self.mapToScene(event.pos()))
+                  #self.mapToScene(event.pos()))
         
     def zoom(self, factor, center=QtCore.QPointF(0,0)):
         '''Zoom by factor and keep "center" in view
@@ -1279,40 +1263,38 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             # Run default method that call on childs
             return QtGui.QGraphicsView.contextMenuEvent(self, event)
         
-        # Abort out of edit mode
-        if not __EDIT_MODE__.get():
-            return
-            
         # Init context menu
         menu = QtGui.QMenu(self)
         
-        # Build context menu
-        add_action = QtGui.QAction("Add Item", None)
-        add_action.triggered.connect(self.add_picker_item)
-        menu.addAction(add_action)
+        # Build Edit move options
+        if __EDIT_MODE__.get():
+            add_action = QtGui.QAction("Add Item", None)
+            add_action.triggered.connect(self.add_picker_item)
+            menu.addAction(add_action)
+            
+            toggle_handles_action = QtGui.QAction("Toggle all handles", None)
+            toggle_handles_action.triggered.connect(self.toggle_all_handles_event)
+            menu.addAction(toggle_handles_action)
+            
+            menu.addSeparator()
+            
+            background_action = QtGui.QAction("Set background image", None)
+            background_action.triggered.connect(self.set_background_event)
+            menu.addAction(background_action)
+            
+            reset_background_action = QtGui.QAction("Reset background", None)
+            reset_background_action.triggered.connect(self.reset_background_event)
+            menu.addAction(reset_background_action)
+            
+    #        menu.addSeparator()
+    #        
+    #        toggle_mode_action = QtGui.QAction("Switch to Anim mode", None)
+    #        toggle_mode_action.triggered.connect(self.toggle_mode_event)
+    #        menu.addAction(toggle_mode_action)
+    
+            menu.addSeparator()
         
-        toggle_handles_action = QtGui.QAction("Toggle all handles", None)
-        toggle_handles_action.triggered.connect(self.toggle_all_handles_event)
-        menu.addAction(toggle_handles_action)
-        
-        menu.addSeparator()
-        
-        background_action = QtGui.QAction("Set background image", None)
-        background_action.triggered.connect(self.set_background_event)
-        menu.addAction(background_action)
-        
-        reset_background_action = QtGui.QAction("Reset background", None)
-        reset_background_action.triggered.connect(self.reset_background_event)
-        menu.addAction(reset_background_action)
-#        
-#        menu.addSeparator()
-#        
-#        toggle_mode_action = QtGui.QAction("Switch to Anim mode", None)
-#        toggle_mode_action.triggered.connect(self.toggle_mode_event)
-#        menu.addAction(toggle_mode_action)
-
-        menu.addSeparator()
-
+        # Common actions
         reset_view_action = QtGui.QAction("Reset view", None)
         reset_view_action.triggered.connect(self.fit_scene_content)
         menu.addAction(reset_view_action)
@@ -1332,7 +1314,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
     def fit_scene_content(self):
         '''Will fit scene content to view, by scaling it
         '''
-        scene_rect = self.scene().get_bounding_rect(margin=5)
+        scene_rect = self.scene().get_bounding_rect(margin=8)
         self.fitInView(scene_rect,
                        mode=QtCore.Qt.KeepAspectRatio)
         
@@ -1365,10 +1347,9 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             # Set item status    
             item.set_edit_status(new_status)
 
-    def toggle_mode_event(self, event=None):
-        '''Will toggle UI edition mode
-        '''
-        pass
+#     def toggle_mode_event(self, event=None):
+#         '''Will toggle UI edition mode
+#         '''
 #        # Save before switching from edit to anim
 #        if __EDIT_MODE__.get_main():
 #            self.parentWidget().save_character()
@@ -3857,11 +3838,16 @@ class MainDockWindow(QtGui.QDockWidget):
         spacer = QtGui.QSpacerItem(10,0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         btns_layout.addItem(spacer)
         
+        # About btn
+        about_btn = CallbackButton(callback=self.show_about_infos)
+        about_btn.setText('?')
+        about_btn.setToolTip('Show help/about informations')
+        btns_layout.addWidget(about_btn)
+        
         # Load from node
         if not __EDIT_MODE__.get():
             self.char_from_node_btn = CallbackButton(callback=self.load_from_sel_node)
             self.char_from_node_btn.setText('Load from selection')
-#            self.char_from_node_btn.setFixedWidth(60)
             btns_layout.addWidget(self.char_from_node_btn)
         
         # Refresh button
@@ -3942,7 +3928,17 @@ class MainDockWindow(QtGui.QDockWidget):
         
         # Add script jobs
         self.add_script_jobs()
-    
+        
+    def show_about_infos(self):
+        '''Open animation picker about and help infos
+        '''
+        # Init new window
+        window = AboutWindow(parent=self.parentWidget())
+        
+        # Show window
+        window.show()
+        window.raise_()
+        
     #===========================================================================
     # Character selector handlers ---
     def selector_change_event(self, index):
