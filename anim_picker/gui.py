@@ -445,7 +445,7 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         for i in range(self.count()):
             name = unicode(self.tabText(i))
             tab_data = self.widget(i).get_data()
-            data.append([name, tab_data])
+            data.append({'name':name, 'data':tab_data})
         return data
     
     def set_data(self, data):
@@ -454,8 +454,11 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         self.clear()
         for tab in data:
             view = GraphicViewWidget(namespace=self.get_namespace())
-            self.addTab(view, tab[0])
-            view.set_data(tab[1])
+            self.addTab(view, tab.get('name', 'default'))
+            
+            tab_content = tab.get('data', None)
+            if tab_content:
+                view.set_data(tab_content)
     
         
 class BackgroundWidget(QtGui.QLabel):
@@ -815,9 +818,9 @@ class CustomScriptEditDialog(QtGui.QDialog):
     def get_default_script():
         '''
         '''
-        text = '# Custom python script window\n'
+        text = '# Custom anim_picker python script window\n'
         text += '# Use __CONTROLS__ in your code to get picker item associated controls\n'
-        text += '# Use __NAMESPACE__ variable where proper namespace is needed\n'
+        text += '# Use __NAMESPACE__ for current picker namespace\n'
         return text
         
     def setup(self):
@@ -1065,6 +1068,30 @@ class AxedGraphicsScene(QtGui.QGraphicsScene):
         self.set_size(self.__DEFAULT_SCENE_WIDTH__,
                       self.__DEFAULT_SCENE_HEIGHT__)
     
+    def get_bounding_rect(self, margin=0):
+        '''
+        Return scene content bounding box with specified margin
+        Warning: In edit mode, will return default scene rectangle
+        '''
+        # Return default size in edit mode
+        if __EDIT_MODE__.get():
+            return self.sceneRect()
+    
+        # Get item boundingBox 
+        scene_rect = self.itemsBoundingRect()
+            
+        # Stop here if no margin
+        if not margin:
+            return scene_rect
+        
+        # Add margin
+        scene_rect.setX(scene_rect.x() - margin)
+        scene_rect.setY(scene_rect.y() - margin)
+        scene_rect.setWidth(scene_rect.width() + margin)
+        scene_rect.setHeight(scene_rect.height() + margin)
+        
+        return scene_rect
+    
     def clear(self):
         '''Reset default z index on clear
         '''
@@ -1124,6 +1151,7 @@ class AxedGraphicsScene(QtGui.QGraphicsScene):
         tmp_scene.deleteLater()
     
     def add_axis_lines(self):
+        return
         if __EDIT_MODE__.get():
             self.add_x_axis()
             self.add_y_axis()
@@ -1165,7 +1193,7 @@ class AxedGraphicsScene(QtGui.QGraphicsScene):
         line = QtCore.QLineF(0, -self.__DEFAULT_SCENE_HEIGHT__/2,
                              0, self.__DEFAULT_SCENE_HEIGHT__/2)
         return line
-
+    
 
 class GraphicViewWidget(QtGui.QGraphicsView):
     '''Graphic view widget that display the "polygons" picker items 
@@ -1373,9 +1401,8 @@ class GraphicViewWidget(QtGui.QGraphicsView):
     def fit_scene_content(self):
         '''Will fit scene content to view, by scaling it
         '''
-        margin = 5
-        self.fitInView(-margin, -margin,
-                       self.scene().width() +margin, self.scene().height() +margin,
+        scene_rect = self.scene().get_bounding_rect(margin=5)
+        self.fitInView(scene_rect,
                        mode=QtCore.Qt.KeepAspectRatio)
         
     def add_picker_item(self, event=None):
@@ -1529,17 +1556,57 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             item.set_data(item_data)
 
     def drawBackground(self, painter, rect):
+        '''Default method override to draw view custom background image
+        '''
+        # Run default method
         result = QtGui.QGraphicsView.drawBackground(self, painter, rect)
+        
+        # Stop here if view has no background
         if not self.background_image:
             return result
         
+        # Draw background image
         painter.drawImage(self.sceneRect(),
                           self.background_image,
                           QtCore.QRectF(self.background_image.rect()))
         
         return result
-            
+
+    def drawForeground(self, painter, rect):
+        '''Default method override to draw origin axis in edit mode
+        '''
+        # Run default method
+        result =  QtGui.QGraphicsView.drawForeground(self, painter, rect)
+          
+        # Paint axis in edit mode
+        if __EDIT_MODE__.get():
+            self.draw_overlay_axis(painter, rect)
         
+        return result
+        
+    def draw_overlay_axis(self, painter, rect):
+        '''Draw x and y origin axis
+        '''
+        # Set Pen
+        pen = QtGui.QPen(QtGui.QColor(160,160,160,120),
+                         1,
+                         QtCore.Qt.DashLine)
+        painter.setPen(pen)
+        
+        # Get event rect in scene coordinates    
+        # Draw x line
+        if rect.y() < 0 and (rect.height() - rect.y()) > 0:
+            x_line = QtCore.QLine(rect.x(),0,
+                                  rect.width() + rect.x(), 0)
+            painter.drawLine(x_line)
+          
+        # Draw y line
+        if rect.x() < 0 and (rect.width() - rect.x()) > 0:
+            y_line = QtCore.QLineF(0, rect.y(),
+                                   0, rect.height() + rect.y())
+            painter.drawLine(y_line)
+    
+    
 class DefaultPolygon(QtGui.QGraphicsObject):
     '''Default polygon class, with move and hover support
     '''
@@ -1632,6 +1699,7 @@ class PointHandle(DefaultPolygon):
         # Make movable
         self.setFlag(self.ItemIsMovable)
         self.setFlag(self.ItemSendsScenePositionChanges)
+        self.setFlag(self.ItemIgnoresTransformations)
 
         # Set values
         self.setPos(x, y)
@@ -2921,11 +2989,9 @@ class HandlesPositionWindow(QtGui.QMainWindow):
         for handle in self.picker_item.get_handles():
             handle.enable_index_draw(status)
     
-    def close(self, *args, **kwargs):
-        '''Override default close function to hide related picker handles index
-        '''
+    def closeEvent(self, *args, **kwargs):
         self.display_handles_index(status=False)
-        return QtGui.QMainWindow.close(self, *args, **kwargs)
+        return QtGui.QMainWindow.closeEvent(self, *args, **kwargs)
             
     def show(self, *args, **kwargs):
         '''Override default show function to display related picker handles index
