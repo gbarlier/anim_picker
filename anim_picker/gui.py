@@ -1890,19 +1890,16 @@ class Polygon(DefaultPolygon):
 class PointHandleIndex(QtGui.QGraphicsSimpleTextItem):
     '''Point handle index text element
     '''
-    __DEFAULT_COLOR__ = QtGui.QColor(200,75,75,255)
+    __DEFAULT_COLOR__ = QtGui.QColor(130,50,50,255)
     
     def __init__(self, parent=None, scene=None, index=0):
         QtGui.QGraphicsSimpleTextItem.__init__(self, parent, scene)
         
-        # Counter view scale
-        self.scale_transform = QtGui.QTransform().scale(1, -1)
-        self.setTransform(self.scale_transform)
-        
         # Init defaults
         self.set_size()
         self.set_color(PointHandleIndex.__DEFAULT_COLOR__)
-        self.setPos(QtCore.QPointF(-12,12))
+        self.setPos(QtCore.QPointF(-9,-14))
+        self.setFlag(self.ItemIgnoresTransformations)
         
         # Hide by default
         self.setVisible(False)
