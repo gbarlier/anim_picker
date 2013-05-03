@@ -394,7 +394,7 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
             return
         
         # Add tab
-        self.addTab(GraphicViewWidget(), name)
+        self.addTab(GraphicViewWidget(main_window=self.main_window), name)
         
         # Set new tab active
         self.setCurrentIndex(self.count()-1)
@@ -453,7 +453,8 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         '''
         self.clear()
         for tab in data:
-            view = GraphicViewWidget(namespace=self.get_namespace())
+            view = GraphicViewWidget(namespace=self.get_namespace(),
+                                     main_window=self.main_window)
             self.addTab(view, tab.get('name', 'default'))
             
             tab_content = tab.get('data', None)
@@ -1117,13 +1118,14 @@ class GraphicViewWidget(QtGui.QGraphicsView):
     __DEFAULT_SCENE_HEIGHT__ = 600
     
     def __init__(self,
-                 namespace=None):
+                 namespace=None,
+                 main_window=None):
         QtGui.QGraphicsView.__init__(self)
         
         self.setScene(OrderedGraphicsScene())
         
-        
         self.namespace = namespace
+        self.main_window = main_window
         
         # Scale view in Y for positive Y values (maya-like)
         self.scale(1, -1)
@@ -1286,13 +1288,14 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             reset_background_action.triggered.connect(self.reset_background_event)
             menu.addAction(reset_background_action)
             
-    #        menu.addSeparator()
-    #        
-    #        toggle_mode_action = QtGui.QAction("Switch to Anim mode", None)
-    #        toggle_mode_action.triggered.connect(self.toggle_mode_event)
-    #        menu.addAction(toggle_mode_action)
-    
             menu.addSeparator()
+        
+        if __EDIT_MODE__.get_main():
+            toggle_mode_action = QtGui.QAction("Toggle Mode", None)
+            toggle_mode_action.triggered.connect(self.toggle_mode_event)
+            menu.addAction(toggle_mode_action)
+    
+            menu.addSeparator()        
         
         # Common actions
         reset_view_action = QtGui.QAction("Reset view", None)
@@ -1347,19 +1350,22 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             # Set item status    
             item.set_edit_status(new_status)
 
-#     def toggle_mode_event(self, event=None):
-#         '''Will toggle UI edition mode
-#         '''
-#        # Save before switching from edit to anim
-#        if __EDIT_MODE__.get_main():
-#            self.parentWidget().save_character()
-#        
-#        # Toggle and refresh
-#        __EDIT_MODE__.toggle()
-#        
-#        # Reset size to default
-#        self.parentWidget().reset_default_size()
-#        self.parentWidget().refresh()
+    def toggle_mode_event(self, event=None):
+        '''Will toggle UI edition mode
+        '''
+        if not self.main_window:
+            return
+        
+        # Save before switching from edit to anim
+        if __EDIT_MODE__.get():
+            self.main_window.save_character()
+         
+        # Toggle mode
+        __EDIT_MODE__.toggle()
+         
+        # Reset size to default
+        self.main_window.reset_default_size()
+        self.main_window.refresh()
     
     def set_background(self, path=None):
         '''Set tab index widget background image
@@ -3885,7 +3891,7 @@ class MainDockWindow(QtGui.QDockWidget):
         self.main_vertical_layout.addWidget(self.tab_widget)
         
         # Add default first tab
-        view = GraphicViewWidget()
+        view = GraphicViewWidget(main_window=self)
         self.tab_widget.addTab(view, name)
     
     def get_picker_items(self):
@@ -3986,7 +3992,7 @@ class MainDockWindow(QtGui.QDockWidget):
         '''Will reset and load default empty tabs
         '''
         self.tab_widget.clear()
-        self.tab_widget.addTab(GraphicViewWidget(), 'None')
+        self.tab_widget.addTab(GraphicViewWidget(main_window=self), 'None')
     
     def refresh(self):
         '''Refresh char selector and window
@@ -4097,7 +4103,7 @@ class MainDockWindow(QtGui.QDockWidget):
         
         # Default tab
         if not self.tab_widget.count():
-            self.tab_widget.addTab(GraphicViewWidget(), 'default')
+            self.tab_widget.addTab(GraphicViewWidget(main_window=self), 'default')
         else:
             # Return to first tab
             self.tab_widget.setCurrentIndex(0)
