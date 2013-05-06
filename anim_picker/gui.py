@@ -11,8 +11,6 @@
 #    -custom script on default left click mouse event instead of selecting associated controls
 
 import os
-from PyQt4 import QtCore, QtGui, QtOpenGL
-import sip
 
 import re
 from math import sin, cos, pi
@@ -22,8 +20,11 @@ from maya import OpenMaya
 from maya import OpenMayaUI
 
 import node
-from handlers import python_handlers
 from handlers import maya_handlers
+from handlers import python_handlers
+
+from handlers import qt_handlers
+from handlers.qt_handlers import QtCore, QtGui, QtOpenGL
 
 from handlers import __EDIT_MODE__
 from handlers import __SELECTION__
@@ -38,7 +39,7 @@ def get_maya_window():
     '''
     try:
         ptr = OpenMayaUI.MQtUtil.mainWindow()
-        return sip.wrapinstance(long(ptr), QtCore.QObject)
+        return qt_handlers.wrap_instance(long(ptr), QtGui.QMainWindow)
     except:
         #    fails at import on maya launch since ui isn't up yet
         return None
@@ -53,44 +54,7 @@ def get_images_folder_path():
   
 #===============================================================================
 # Custom Widgets ---
-#===============================================================================
-#class Test(QtCore.QObject):
-#    def __init__(self,
-#                 text,
-#                 parent=None):
-#        pass
-#    
-#class QActionWithOption(QtGui.QWidgetAction):
-#    def __init__(self,
-#                 text,
-#                 parent=None,
-#                 option_callback=None):
-#        QtGui.QWidgetAction.__init__(self, parent)
-#        
-#        self.text = text
-#        self.option_callback = option_callback
-#        self.setup()
-#        
-#    def setup(self):
-#        main_widget = QtGui.QWidget()
-#        self.main_layout = QtGui.QHBoxLayout(main_widget)
-#        
-#        action = QtGui.QWidgetAction(main_widget)
-#        action.setText(self.text)
-#        
-##        self.main_layout.addWidget(action.defaultWidget())
-#        
-#        self.setDefaultWidget(main_widget)
-#        return
-#        
-#        # add widget
-#        option_box = QtGui.QLabel(self.text)
-#        self.main_layout.addWidget(option_box)
-#        
-#        option_box = QtGui.QLabel('tutu')
-#        self.main_layout.addWidget(option_box)
-#        
-        
+#===============================================================================      
 class CallbackButton(QtGui.QPushButton):
     '''Dynamic callback button
     '''
@@ -4158,7 +4122,7 @@ class MainDockWindow(QtGui.QDockWidget):
         self.kill_script_jobs()
         
         # Get current UI maya_name
-        ui_id = sip.unwrapinstance(self)
+        ui_id = qt_handlers.unwrap_instance(self)
         ui_name = OpenMayaUI.MQtUtil.fullName( long(ui_id) )
         
         # Add selection change event
@@ -4206,7 +4170,7 @@ def load(edit=False, multi=True):
         dock_pt = OpenMayaUI.MQtUtil.findControl(MainDockWindow.__OBJ_NAME__)
         if dock_pt:
             # Get dock qt instance
-            dock_widget = sip.wrapinstance(long(dock_pt), QtCore.QObject)
+            dock_widget = qt_handlers.wrap_instance(long(dock_pt), QtCore.QObject)
             dock_widget.show()
             dock_widget.raise_()
     
