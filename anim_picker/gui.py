@@ -4,12 +4,6 @@
 
 # PyQt4 user interface for anim_picker
 
-# To do:
-#    -rotate shape support
-#    -handle size option
-#    -middle click pan support
-#    -custom script on default left click mouse event instead of selecting associated controls
-
 import os
 
 import re
