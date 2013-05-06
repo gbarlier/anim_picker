@@ -22,13 +22,13 @@ except:
     
     
 # Instance handling
-def wrap_instance(ptr, qt_class):
+def wrap_instance(ptr, base):
     '''Return QtGui object instance based on pointer address
     '''
     if globals().has_key('sip'):
         return sip.wrapinstance(long(ptr), QtCore.QObject)
     elif globals().as_key('shiboken'):
-        return shiboken.wrapInstance(long(ptr), qt_class)
+        return shiboken.wrapInstance(long(ptr), base)
     
 def unwrap_instance(qt_object):
     '''Return pointer address for qt class instance
