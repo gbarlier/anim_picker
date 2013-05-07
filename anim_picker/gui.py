@@ -472,6 +472,13 @@ class BackgroundWidget(QtGui.QLabel):
         file_path = QtGui.QFileDialog.getOpenFileName(self,
                                                       'Choose picture',
                                                       get_images_folder_path())
+        # Filter return result (based on qt version)
+        if isinstance(file_path, tuple):
+            file_path = file_path[0]
+            
+        if not file_path:
+            return
+        
         return file_path
     
     
@@ -1279,8 +1286,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         '''Will fit scene content to view, by scaling it
         '''
         scene_rect = self.scene().get_bounding_rect(margin=8)
-        self.fitInView(scene_rect,
-                       mode=QtCore.Qt.KeepAspectRatio)
+        self.fitInView(scene_rect, QtCore.Qt.KeepAspectRatio)
         
     def add_picker_item(self, event=None):
         '''Add new PickerItem to current view
@@ -1331,12 +1337,16 @@ class GraphicViewWidget(QtGui.QGraphicsView):
     def set_background(self, path=None):
         '''Set tab index widget background image
         '''
+        if not path:
+            return
+        path = unicode(path)
+        
         # Check that path exists
-        if not os.path.exists(path):
+        if not (path and os.path.exists(path)):
             print '# background image not found: "%s"'%path
             return
         
-        self.background_image_path = unicode(path)
+        self.background_image_path = path
         
         # Load image and mirror it vertically
         self.background_image = QtGui.QImage(path).mirrored(False, True)
@@ -1347,7 +1357,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         self.scene().set_size(width, height)
         
         # Update display
-        self.update()
+        self.fit_scene_content()
         
     def set_background_event(self, event=None):
         '''Set background image pick dialog window
@@ -1357,6 +1367,10 @@ class GraphicViewWidget(QtGui.QGraphicsView):
                                                       'Choose a background',
                                                       get_images_folder_path())
         
+        # Filter return result (based on qt version)
+        if isinstance(file_path, tuple):
+            file_path = file_path[0]
+            
         # Abort on cancel
         if not file_path:
             return
@@ -1370,7 +1384,9 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         self.background_image = None
         self.background_image_path = None
         self.scene().set_default_size()
-        self.update()
+        
+        # Update display
+        self.fit_scene_content()
 
     def get_background(self, index):
         '''Return background for tab index
@@ -3534,10 +3550,10 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         
         # Open input window
         name, ok = QtGui.QInputDialog.getText(self,
-                                              self.tr("Ctrl name"),
-                                              self.tr('New name'),
-                                              QtGui.QLineEdit.Normal,
-                                              self.tr(item.text()))
+                                              unicode("Ctrl name"),
+                                              unicode('New name'),
+                                              mode=QtGui.QLineEdit.Normal,
+                                              text=unicode(item.text()))
         if not (ok and name):
             return
         
