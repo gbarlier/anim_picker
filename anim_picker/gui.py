@@ -75,7 +75,7 @@ class CallbackComboBox(QtGui.QComboBox):
     '''Dynamic combo box object
     '''
     def __init__(self, callback=None, status_tip=None, *args, **kwargs):
-        QtGui.QAction.__init__(self)
+        QtGui.QComboBox.__init__(self)
         self.callback = callback
         self.args = args
         self.kwargs = kwargs
