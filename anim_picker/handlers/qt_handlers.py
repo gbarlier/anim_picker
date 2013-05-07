@@ -16,7 +16,7 @@ try:
     import sip
 except:
     try:
-        import shiboken
+        from PySide import shiboken
     except:
         raise Exception, 'Failed to import sip or shiboken'
     
@@ -27,7 +27,7 @@ def wrap_instance(ptr, base):
     '''
     if globals().has_key('sip'):
         return sip.wrapinstance(long(ptr), QtCore.QObject)
-    elif globals().as_key('shiboken'):
+    elif globals().has_key('shiboken'):
         return shiboken.wrapInstance(long(ptr), base)
     
 def unwrap_instance(qt_object):
@@ -35,5 +35,5 @@ def unwrap_instance(qt_object):
     '''
     if globals().has_key('sip'):
         return long(sip.unwrapinstance(qt_object))
-    elif globals().as_key('shiboken'):
+    elif globals().has_key('shiboken'):
         return long(shiboken.getCppPointer(qt_object)[0])

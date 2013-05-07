@@ -195,7 +195,8 @@ class CallbackCheckBoxWidget(QtGui.QCheckBox):
         self.kwargs = kwargs
         
         # Set init state
-        self.setCheckState(value)
+        if value:
+            self.setCheckState(QtCore.Qt.CheckState)
         self.setText(label or '')
         
         self.connect(self, QtCore.SIGNAL("toggled(bool)"), self.toggled_event)
@@ -273,7 +274,9 @@ class CtrlListWidgetItem(QtGui.QListWidgetItem):
         else:
             color.setRgb(255, 165, 0) # orange
         
-        self.setTextColor(color)
+        brush = self.foreground()
+        brush.setColor(color)
+        self.setForeground(brush)
  
  
 class ContextMenuTabWidget(QtGui.QTabWidget):
@@ -501,7 +504,7 @@ class SnapshotWidget(BackgroundWidget):
     def set_background(self, path=None):
         '''Set character snapshot picture
         '''
-        if not (path and os.path.exists(path)):
+        if not (path and os.path.exists(unicode(path))):
             path = self._get_default_snapshot()
             self.background = None
         else:
@@ -2123,7 +2126,7 @@ class PickerItem(DefaultPolygon):
         # Set focus to maya window
         maya_window = get_maya_window()
         if maya_window:
-            maya_window.setFocus(True)
+            maya_window.setFocus()
     
     def mouse_press_select_event(self, event):
         '''
@@ -2355,8 +2358,10 @@ class PickerItem(DefaultPolygon):
         '''
         # Delete old window 
         if self.edit_window:
-            self.edit_window.close()
-            self.edit_window.deleteLater()
+            try:
+                self.edit_window.close()
+                self.edit_window.deleteLater()
+            except:pass
             
         # Init new window
         self.edit_window = ItemOptionsWindow(parent=self.parentWidget(), picker_item=self)
@@ -2952,7 +2957,9 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''
         # Close child windows
         if self.handles_window:
-            self.handles_window.close() 
+            try:
+                self.handles_window.close()
+            except:pass 
 
         QtGui.QMainWindow.closeEvent(self, *args, **kwargs)
         
@@ -3333,8 +3340,10 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         
         # Delete old window 
         if self.handles_window:
-            self.handles_window.close()
-            self.handles_window.deleteLater()
+            try:
+                self.handles_window.close()
+                self.handles_window.deleteLater()
+            except:pass
             
         # Init new window
         self.handles_window = HandlesPositionWindow(parent=self,
@@ -3870,13 +3879,17 @@ class MainDockWindow(QtGui.QDockWidget):
         
         # Close childs
         for child in self.childs:
-            child.close()
+            try:
+                child.close()
+            except:pass
         
         # Close ctrls options windows
         for item in self.get_all_picker_items():
-            if not item.edit_window:
-                continue
-            item.edit_window.close()
+            try:
+                if not item.edit_window:
+                    continue
+                item.edit_window.close()
+            except:pass
         
         # Default close    
         QtGui.QDockWidget.closeEvent(self, *args, **kwargs)
@@ -3979,7 +3992,7 @@ class MainDockWindow(QtGui.QDockWidget):
         self.tab_widget.fit_contents()
         
         # Set focus on view
-        self.tab_widget.currentWidget().setFocus(True)
+        self.tab_widget.currentWidget().setFocus()
     
     def load_from_sel_node(self):
         '''Will try to load character for selected node
