@@ -571,6 +571,37 @@ class SnapshotWidget(BackgroundWidget):
         return self.background
 
 
+class OverlayWidget(QtGui.QWidget):
+    '''
+    Transparent overlay type widget
+    
+    Don't forget to add resize to parent resetEvent to resize this event window as:
+    #def resizeEvent(self, event):
+    #    self.overlay.resize(self.widget().size())
+    #    self.overlay.move(self.widget().pos())
+    #    event.accept()
+    
+    '''
+    def __init__(self, parent=None):
+        QtGui.QWidget.__init__(self, parent)
+        
+        self.set_overlay_background()
+        self.setup()
+        
+    def set_overlay_background(self):
+        palette = QtGui.QPalette(self.palette())
+        palette.setColor(palette.Background, QtGui.QColor(20, 20, 20, 190))
+        self.setPalette(palette)        
+        self.setAutoFillBackground(True)
+
+    def setup(self):
+        # Add default layout
+        self.layout = QtGui.QVBoxLayout(self)
+        
+        # Hide by default
+        self.hide()
+        
+        
 #===============================================================================
 # New code ---
 #===============================================================================
@@ -3697,40 +3728,52 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self._populate_menu_list_widget()
         
 
-class AboutWindow(QtGui.QMainWindow):
-    '''Create Help/About window for animation picker tool'''
-    #-----------------------------------------------------------------------------------------------
-    #    constructor
+class AboutOverlayWidget(OverlayWidget):
     def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
-        self.setup(self)
+        OverlayWidget.__init__(self, parent=parent)
         
-    def setup(self, window):
-        window.setWindowTitle('About anim_picker tool')
-        window.resize(270, 140)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHeightForWidth(window.sizePolicy().hasHeightForWidth())
-        window.setSizePolicy(sizePolicy)
-        window.setMinimumSize(QtCore.QSize(270, 140))
-        self.centralwidget = QtGui.QWidget(window)
-        self.centralwidget.setGeometry(QtCore.QRect(0, 0, 270, 140))
+    def setup(self):
+        OverlayWidget.setup(self)
 
-        mainLayout  =   QtGui.QVBoxLayout(self.centralwidget)
-        
-        #    add label
+        # Add label
         label = QtGui.QLabel()
         label.setText(self.get_text())
-        mainLayout.addWidget(label)
+        self.layout.addWidget(label)
+        
+        # Add Close button
+        btn_layout = QtGui.QHBoxLayout()
+
+        spacer = QtGui.QSpacerItem(0,0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        btn_layout.addItem(spacer)
+        
+        close_btn = CallbackButton(callback=self.hide)
+        close_btn.setText('Close')
+        close_btn.setToolTip('Hide about informations')
+        btn_layout.addWidget(close_btn)
+        
+        spacer = QtGui.QSpacerItem(0,0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        btn_layout.addItem(spacer)
+        
+        self.layout.addLayout(btn_layout)
+        
+        # Add vertical spacer
+        spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.layout.addItem(spacer)
         
     def get_text(self):
-        text = '''anim_picker 
-        04/2013
+        text = '''
+        Anim_picker, %s
         
-        Author: Guillaume Barlier
-        http://guillaume.barlier.com
+        Copyright (c) 2012-2013 Guillaume Barlier
+        This programe is covered by the LGPLv3 or later.
         
-        '''
+        Check for updates on my website:
+        http://guillaume.barlier.com/code
+        
+        '''%anim_picker.__version__
+        
         return text
+    
             
 class MainDockWindow(QtGui.QDockWidget):
     __OBJ_NAME__ = 'ctrl_picker_window'
@@ -3782,7 +3825,8 @@ class MainDockWindow(QtGui.QDockWidget):
         # Add window fields
         self.add_character_selector()
         self.add_tab_widget()
-
+        self.add_about_overlay()
+        
         # Add main widget to window
         self.setWidget(self.main_widget)
         
@@ -3878,6 +3922,11 @@ class MainDockWindow(QtGui.QDockWidget):
         view = GraphicViewWidget(main_window=self)
         self.tab_widget.addTab(view, name)
     
+    def add_about_overlay(self):
+        '''Add transparent about/information overlay widget
+        '''
+        self.about_widget = AboutOverlayWidget(self)
+        
     def get_picker_items(self):
         '''Return picker items for current active tab
         '''
@@ -3923,15 +3972,17 @@ class MainDockWindow(QtGui.QDockWidget):
         # Add script jobs
         self.add_script_jobs()
         
+    def resizeEvent(self, event):
+        '''Resize about overlay on resize event
+        '''
+        self.about_widget.resize(self.main_widget.size())
+        self.about_widget.move(self.main_widget.pos())
+        return QtGui.QDockWidget.resizeEvent(self, event)
+    
     def show_about_infos(self):
         '''Open animation picker about and help infos
         '''
-        # Init new window
-        window = AboutWindow(parent=self.parentWidget())
-        
-        # Show window
-        window.show()
-        window.raise_()
+        self.about_widget.show()
         
     #===========================================================================
     # Character selector handlers ---
