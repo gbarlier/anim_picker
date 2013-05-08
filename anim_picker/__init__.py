@@ -2,12 +2,16 @@
 # This file is part of "anim_picker" and covered by the LGPLv3 or later,
 # read COPYING and COPYING.LESSER for details.
 
-import gui
-load = gui.load
+__version__ = '1.0.0'
 
-def use_opengl(state=True):
+def load(edit=False, multi=False):
+    '''Fast load method
     '''
-    Will set the viewport to openGl or not
-    (will need to restart maya to take effect, since the picker will does not "restart")
-    '''
-    gui.__USE_OPENGL__ = state
+    import gui
+    return gui.load(edit=edit, multi=multi)
+
+# def use_opengl(state=True):
+#     '''Will set the viewport to openGl or not
+#     '''
+#     import gui
+#     gui.__USE_OPENGL__ = state

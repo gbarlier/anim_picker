@@ -4,6 +4,7 @@
 
 import sys
 from maya import cmds
+import anim_picker
 
 class DataNode():
     # Pipeline
@@ -12,7 +13,7 @@ class DataNode():
 
     # Attributes names
     __DATAS_ATTR__ = 'picker_datas'
-    
+    __VERSION_ATTR__ = 'picker_version'
     
     def __init__(self, name=None):
         self.name = name
@@ -74,7 +75,11 @@ class DataNode():
 
         # Add datas path attribute
         self._add_str_attr(node, self.__DATAS_ATTR__)
-    
+        
+        # Add version attribute
+        self._add_str_attr(node, self.__VERSION_ATTR__)
+        self.set_version()
+        
     #===========================================================================
     # Maya attributes
     def _get_attr(self, attr):
@@ -156,6 +161,20 @@ class DataNode():
                 if controls.count(node):
                     return True
         return False
+    
+    def set_version(self, version=None):
+        '''Set node data version attribute
+        '''
+        if not version:
+            version = anim_picker.__version__
+            
+        cmds.setAttr('%s.%s'%(self.name, self.__VERSION_ATTR__),
+                     k=False,
+                     l=False)
+        cmds.setAttr('%s.%s'%(self.name, self.__VERSION_ATTR__),
+                     unicode(version),
+                     l=True,
+                     type='string')
     
     
 def get_nodes():

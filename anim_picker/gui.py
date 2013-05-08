@@ -13,6 +13,7 @@ from maya import cmds
 from maya import OpenMaya
 from maya import OpenMayaUI
 
+import anim_picker
 import node
 from handlers import maya_handlers
 from handlers import python_handlers
@@ -4133,7 +4134,7 @@ class MainDockWindow(QtGui.QDockWidget):
         tabs_data = self.tab_widget.get_data()
         if tabs_data:
             picker_data['tabs'] = tabs_data
-    
+        
         return picker_data
     
     #===========================================================================
@@ -4185,8 +4186,8 @@ class MainDockWindow(QtGui.QDockWidget):
 #===============================================================================
 # Load user interface function
 #===============================================================================
-def load(edit=False, multi=True):
-    '''Load ui for gb_skin_weights scripts
+def load(edit=False, multi=False):
+    '''Load anim_picker ui window
     '''
     # Check if window already exists
     if not multi:
