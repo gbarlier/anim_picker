@@ -801,11 +801,14 @@ class CustomScriptEditDialog(QtGui.QDialog):
     
     @staticmethod
     def get_default_script():
-        '''
+        '''Custom script default content
         '''
         text = '# Custom anim_picker python script window\n'
-        text += '# Use __CONTROLS__ in your code to get picker item associated controls\n'
-        text += '# Use __NAMESPACE__ for current picker namespace\n'
+        text += '# Use the following faviable in your code to access related data:\n'
+        text += '# __CONTROLS__ for picker item associated controls (will return sets and not content).\n'
+        text += '# __FLATCONTROLS__ for associated controls and control set content.\n'
+        text += '# __NAMESPACE__ for current picker namespace\n'
+        text += '\n'
         return text
         
     def setup(self):
@@ -2369,8 +2372,9 @@ class PickerItem(DefaultPolygon):
         # Init env
         env  = dict()
         
-        # Add controls vars
+        # Add controls vars        
         env['__CONTROLS__'] = self.get_controls()
+        env['__FLATCONTROLS__'] = maya_handlers.get_flattened_nodes(self.get_controls())
         env['__NAMESPACE__'] = self.get_namespace()
         
         return env

@@ -5,6 +5,7 @@
 import sys
 from maya import cmds
 import anim_picker
+from handlers import maya_handlers
 
 class DataNode():
     # Pipeline
@@ -158,6 +159,7 @@ class DataNode():
         for tab_data in self.data['tabs']:
             for item_data in tab_data[1]:
                 controls = item_data.get('controls', list())
+                controls = maya_handlers.get_flattened_nodes(controls)
                 if controls.count(node):
                     return True
         return False

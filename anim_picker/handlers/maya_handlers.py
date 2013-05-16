@@ -13,7 +13,7 @@ def get_flattened_nodes(nodes):
     results = list()
     
     # Parse nodes
-    for node in nodes:
+    for node in nodes or list():
         # Skip if not doesn't exists 
         if not cmds.objExists(node):
             continue
