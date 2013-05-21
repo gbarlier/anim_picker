@@ -29,22 +29,16 @@ __USE_OPENGL__ = False # seems to conflicts with maya viewports...
 #===============================================================================
 # Dependencies ---
 #===============================================================================
-def get_maya_window():
-    '''Get the maya main window as a QMainWindow instance
+def get_module_path():
+    '''Return the folder path for this module
     '''
-    try:
-        ptr = OpenMayaUI.MQtUtil.mainWindow()
-        return qt_handlers.wrap_instance(long(ptr), QtGui.QMainWindow)
-    except:
-        #    fails at import on maya launch since ui isn't up yet
-        return None
+    return os.path.dirname(os.path.abspath(__file__))
 
 def get_images_folder_path():
     '''Return path for package images folder
     '''
     # Get the path to this file
-    this_path = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(this_path, 'images')
+    return os.path.join(get_module_path(), 'images')
                             
   
 #===============================================================================
@@ -197,7 +191,7 @@ class CallbackCheckBoxWidget(QtGui.QCheckBox):
         
         # Set init state
         if value:
-            self.setCheckState(QtCore.Qt.CheckState)
+            self.setCheckState(QtCore.Qt.Checked)
         self.setText(label or '')
         
         self.connect(self, QtCore.SIGNAL("toggled(bool)"), self.toggled_event)
@@ -585,12 +579,17 @@ class OverlayWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
         
-        self.set_overlay_background()
+        self.set_default_background_color()
         self.setup()
+    
+    def set_default_background_color(self):
+        palette = self.parent().palette()
+        color = palette.color(palette.Background)
+        self.set_overlay_background(color)
         
-    def set_overlay_background(self):
-        palette = QtGui.QPalette(self.palette())
-        palette.setColor(palette.Background, QtGui.QColor(20, 20, 20, 190))
+    def set_overlay_background(self, color=QtGui.QColor(20, 20, 20, 90)):
+        palette = QtGui.QPalette(self.parent().palette())
+        palette.setColor(palette.Background, color)
         self.setPalette(palette)        
         self.setAutoFillBackground(True)
 
@@ -926,7 +925,21 @@ class CustomMenuEditDialog(CustomScriptEditDialog):
         name_layout.addWidget(self.name_widget)
         
         self.main_layout.insertLayout(0, name_layout)
-            
+    
+    def accept_event(self):
+        '''Accept button event, check for name
+        '''
+        if not self.name_widget.text():
+            QtGui.QMessageBox.warning(self,
+                                      "Warning",
+                                      "You need to specify a menu name")
+            return
+        
+        self.apply = True
+        
+        self.accept()
+        self.close()
+        
     def get_values(self):
         '''Return dialog window result values 
         '''
@@ -1358,9 +1371,10 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         if not self.main_window:
             return
         
-        # Save before switching from edit to anim
+        # Check for possible data change/loss
         if __EDIT_MODE__.get():
-            self.main_window.save_character()
+            if not self.main_window.check_for_data_change():
+                return
          
         # Toggle mode
         __EDIT_MODE__.toggle()
@@ -2175,7 +2189,7 @@ class PickerItem(DefaultPolygon):
                 self.mouse_press_select_event(event)
             
         # Set focus to maya window
-        maya_window = get_maya_window()
+        maya_window = qt_handlers.get_maya_window()
         if maya_window:
             maya_window.setFocus()
     
@@ -2928,7 +2942,7 @@ class HandlesPositionWindow(QtGui.QMainWindow):
         '''
         self.display_handles_index(status=True)
         return QtGui.QMainWindow.show(self, *args, **kwargs)
-        
+                
     
 class ItemOptionsWindow(QtGui.QMainWindow):
     '''Child window to edit shape options
@@ -3730,8 +3744,161 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         
         # Update display
         self._populate_menu_list_widget()
-        
 
+
+class SaveOverlayWidget(OverlayWidget):
+    '''Save options overlay widget
+    '''
+    def __init__(self, parent):
+        OverlayWidget.__init__(self, parent=parent)
+
+    def setup(self):
+        OverlayWidget.setup(self)
+        
+        # Add options group box
+        group_box = QtGui.QGroupBox()
+        group_box.setTitle('Save options')
+        self.option_layout = QtGui.QVBoxLayout(group_box)
+        self.layout.addWidget(group_box)
+        
+        # Add options
+        self.add_node_save_options()
+        self.add_file_save_options()
+        
+        # Add action buttons
+        self.add_confirmation_buttons()
+        
+        # Add vertical spacer
+        spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.layout.addItem(spacer)
+        
+        self.data_node = None
+    
+    def add_node_save_options(self):
+        '''Save data to node option
+        '''
+        self.node_option_cb = QtGui.QCheckBox()
+        self.node_option_cb.setText('Save data to node')
+        
+        self.option_layout.addWidget(self.node_option_cb)
+        
+    def add_file_save_options(self):
+        '''Add save to file options
+        '''
+        self.file_option_cb = QtGui.QCheckBox()
+        self.file_option_cb.setText('Save data to file')
+        
+        self.option_layout.addWidget(self.file_option_cb)
+        
+        file_layout = QtGui.QHBoxLayout()
+        
+        self.file_path_le = QtGui.QLineEdit()
+        file_layout.addWidget(self.file_path_le)
+        
+        file_btn = CallbackButton(callback=self.select_file_event)
+        file_btn.setText('Select File')
+        file_layout.addWidget(file_btn)
+        
+        self.option_layout.addLayout(file_layout)
+        
+    def add_confirmation_buttons(self):
+        '''Add save confirmation buttons to overlay
+        '''
+        btn_layout = QtGui.QHBoxLayout()
+
+        spacer = QtGui.QSpacerItem(0,0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        btn_layout.addItem(spacer)
+        
+        close_btn = CallbackButton(callback=self.cancel_event)
+        close_btn.setText('Cancel')
+        btn_layout.addWidget(close_btn)
+        
+        save_btn = CallbackButton(callback=self.save_event)
+        save_btn.setText('Save')
+        btn_layout.addWidget(save_btn)
+        
+        spacer = QtGui.QSpacerItem(0,0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        btn_layout.addItem(spacer)
+        
+        self.layout.addLayout(btn_layout)
+    
+    def show(self):
+        '''Update fields for current data node on show
+        '''
+        self.update_fields()
+        OverlayWidget.show(self)
+        
+    def update_fields(self):
+        '''Update fields for current data node
+        '''
+        self.data_node = self.parent().get_current_data_node()
+        
+        # Update node field
+        self.node_option_cb.setCheckState(QtCore.Qt.Checked)
+        
+        # Update file fields
+        current_file_path = self.data_node.get_file_path()
+        self.file_path_le.setText(current_file_path or '')
+        if current_file_path:
+            self.file_option_cb.setCheckState(QtCore.Qt.Checked)
+        
+    def select_file_event(self):
+        '''Open save dialog window to select file path
+        '''
+        file_path = self.select_file_dialog()
+        if not file_path:
+            return
+        self.file_path_le.setText(file_path)
+    
+    def select_file_dialog(self):
+        '''Get file dialog window starting in default folder
+        '''
+        file_path = QtGui.QFileDialog.getSaveFileName(self,
+                                                      'Choose file',
+                                                      get_module_path(),
+                                                      'Picker Datas (*.pkr)')
+        
+        # Filter return result (based on qt version)
+        if isinstance(file_path, tuple):
+            file_path = file_path[0]
+            
+        if not file_path:
+            return
+        
+        return file_path
+    
+    def _get_file_path(self):
+        '''Return line edit file path
+        '''
+        file_path = self.file_path_le.text()
+        if file_path:
+            return unicode(file_path)
+        return None
+        
+    def save_event(self):
+        '''Process save operation
+        '''
+        # Get DataNode
+        assert self.data_node, 'No data_node found/selected'
+        
+        # Get character data
+        data = self.parent().get_character_data()
+        
+        # Write data to node
+        self.data_node.set_data(data)
+        self.data_node.write_data(to_node=self.node_option_cb.checkState(),
+                                  to_file=self.file_option_cb.checkState(),
+                                  file_path=self._get_file_path())
+        
+        # Hide overlay
+        self.hide()
+
+    def cancel_event(self):
+        '''Cancel save
+        '''
+        self.hide()
+        
+        
 class AboutOverlayWidget(OverlayWidget):
     def __init__(self, parent=None):
         OverlayWidget.__init__(self, parent=parent)
@@ -3784,7 +3951,7 @@ class MainDockWindow(QtGui.QDockWidget):
     __TITLE__ = 'Anim Picker'
     
     def __init__(self,
-                 parent=get_maya_window(),
+                 parent=qt_handlers.get_maya_window(),
                  edit=False ):
         '''init pyqt4 GUI'''
         QtGui.QDockWidget.__init__(self, parent)
@@ -3818,7 +3985,7 @@ class MainDockWindow(QtGui.QDockWidget):
         self.setFeatures(QtGui.QDockWidget.DockWidgetFloatable|QtGui.QDockWidget.DockWidgetMovable|QtGui.QDockWidget.DockWidgetClosable)
         
         # Add to maya window for proper behavior
-        maya_window = get_maya_window()
+        maya_window = qt_handlers.get_maya_window()
         maya_window.addDockWidget(QtCore.Qt.RightDockWidgetArea, self)
         self.setFloating(True)
         
@@ -3829,7 +3996,7 @@ class MainDockWindow(QtGui.QDockWidget):
         # Add window fields
         self.add_character_selector()
         self.add_tab_widget()
-        self.add_about_overlay()
+        self.add_overlays()
         
         # Add main widget to window
         self.setWidget(self.main_widget)
@@ -3926,10 +4093,11 @@ class MainDockWindow(QtGui.QDockWidget):
         view = GraphicViewWidget(main_window=self)
         self.tab_widget.addTab(view, name)
     
-    def add_about_overlay(self):
-        '''Add transparent about/information overlay widget
+    def add_overlays(self):
+        '''Add transparent overlay widgets
         '''
         self.about_widget = AboutOverlayWidget(self)
+        self.save_widget = SaveOverlayWidget(self)
         
     def get_picker_items(self):
         '''Return picker items for current active tab
@@ -3979,8 +4147,15 @@ class MainDockWindow(QtGui.QDockWidget):
     def resizeEvent(self, event):
         '''Resize about overlay on resize event
         '''
-        self.about_widget.resize(self.main_widget.size())
-        self.about_widget.move(self.main_widget.pos())
+        size = self.main_widget.size()
+        pos = self.main_widget.pos()
+        
+        self.about_widget.resize(size)
+        self.about_widget.move(pos)
+        
+        self.save_widget.resize(size)
+        self.save_widget.move(pos)
+        
         return QtGui.QDockWidget.resizeEvent(self, event)
     
     def show_about_infos(self):
@@ -4046,9 +4221,10 @@ class MainDockWindow(QtGui.QDockWidget):
         if data_node and data_node.exists():
             current_node = data_node.name
         
-        # Save current character in edit mode
+        # Check/abort on possible data changes
         if __EDIT_MODE__.get() and current_node:
-            self.save_character()
+            if not self.check_for_data_change():
+                return
             
         # Re-populate selector
         self.populate_char_selector()
@@ -4101,9 +4277,9 @@ class MainDockWindow(QtGui.QDockWidget):
         if not (ok and name):
             return
         
-        # Save current character
-        if self.get_current_data_node():
-            self.save_character()
+        # Check for possible data changes/loss
+        if not self.check_for_data_change():
+            return
         
         # Create new data node
         data_node = node.DataNode(name=unicode(name))
@@ -4113,6 +4289,28 @@ class MainDockWindow(QtGui.QDockWidget):
     
     #===========================================================================
     # Data ---
+    def check_for_data_change(self):
+        '''
+        Check if data changed
+        If changes are detected will ask user if he wants to proceed any way and loose thoses changes
+        Return user answer
+        '''
+        # Get current data node
+        data_node = self.get_current_data_node()
+        if not (data_node and data_node.exists()):
+            return True
+
+        # Return true if no changes were detected
+        if data_node == self.get_character_data():
+            return True
+        
+        # Open question window
+        answer = QtGui.QMessageBox.question(self,
+                                            'Changes detected',
+                                            'Any changes will be lost, proceed any way ?',
+                                     buttons = QtGui.QMessageBox.No | QtGui.QMessageBox.Yes)
+        return answer == QtGui.QMessageBox.Yes
+    
     def get_current_namespace(self):
         return self.get_current_data_node().get_namespace()
     
@@ -4171,9 +4369,14 @@ class MainDockWindow(QtGui.QDockWidget):
                                       "Save is not permited in anim mode")
             return
         
-        # Write data to node
-        data_node.set_data(self.get_character_data())
-        data_node.write_data()
+        # Block save on referenced nodes
+        if data_node.is_referenced():
+            QtGui.QMessageBox.warning(self,
+                                      "Warning",
+                                      "Save is not permited on referenced nodes")
+            return
+        
+        self.save_widget.show()
     
     def get_character_data(self):
         '''Return window data
@@ -4244,7 +4447,7 @@ class MainDockWindow(QtGui.QDockWidget):
 def load(edit=False, multi=False):
     '''Load anim_picker ui window
     '''
-    # Check if window already exists
+    # Return existing window if not multi option
     if not multi:
         dock_pt = OpenMayaUI.MQtUtil.findControl(MainDockWindow.__OBJ_NAME__)
         if dock_pt:
@@ -4256,7 +4459,7 @@ def load(edit=False, multi=False):
             return dock_widget
     
     # Init UI
-    dock_widget = MainDockWindow(parent=get_maya_window(),
+    dock_widget = MainDockWindow(parent=qt_handlers.get_maya_window(),
                                  edit=edit)
     
     # Show ui

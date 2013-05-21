@@ -3,9 +3,11 @@
 # read COPYING and COPYING.LESSER for details.
 
 import sys
+import os
 from maya import cmds
 import anim_picker
 from handlers import maya_handlers
+from handlers import file_handlers
 
 class DataNode():
     # Pipeline
@@ -14,6 +16,7 @@ class DataNode():
 
     # Attributes names
     __DATAS_ATTR__ = 'picker_datas'
+    __FILE_ATTR__ = 'picker_datas_file'
     __VERSION_ATTR__ = 'picker_version'
     
     def __init__(self, name=None):
@@ -29,6 +32,12 @@ class DataNode():
         return "%s.%s(u'%s')"%(self.__class__.__module__,
                               self.__class__.__name__,
                               self.name)
+    
+    def __eq__(self, other):
+        '''Compare datas
+        '''
+        return self.data == other
+    
     def __lt__(self, other):
         '''Override for "sort" function
         '''
@@ -73,13 +82,16 @@ class DataNode():
         # Tag data node
         cmds.addAttr(node, ln=self.__TAG__, at='bool', dv=True)
         cmds.setAttr('%s.%s'%(node, self.__TAG__), k=False, l=True)
-
-        # Add datas path attribute
-        self._add_str_attr(node, self.__DATAS_ATTR__)
         
         # Add version attribute
         self._add_str_attr(node, self.__VERSION_ATTR__)
         self.set_version()
+        
+        # Add datas path attribute
+        self._add_str_attr(node, self.__DATAS_ATTR__)
+        
+        # Add data file path attribute
+        self._add_str_attr(node, self.__FILE_ATTR__)
         
     #===========================================================================
     # Maya attributes
@@ -87,7 +99,8 @@ class DataNode():
         '''Return node's attribute value
         '''
         self._assert_exists()
-        
+        if not cmds.attributeQuery(attr, n=self.name, ex=True):
+            return
         return cmds.getAttr('%s.%s'%(self.name, attr)) or None
         
     def _add_str_attr(self, node, ln):
@@ -96,7 +109,7 @@ class DataNode():
         self._assert_exists()
         
         cmds.addAttr(node, ln=ln, dt='string')
-        cmds.setAttr('%s.%s'%(node, ln), k=False, l=True, type='string')
+        cmds.setAttr('%s.%s'%(node, ln), k=False, l=False, type='string')
     
     def _set_str_attr(self, attr, value=None):
         '''Set string attribute value
@@ -123,6 +136,11 @@ class DataNode():
             return None
         return self.name.rsplit(':', 1)[0]
     
+    def get_file_path(self):
+        '''Return stored file path
+        '''
+        return self._get_attr(self.__FILE_ATTR__)
+    
     #===========================================================================
     # Set attributes
     def get_data(self):
@@ -131,19 +149,30 @@ class DataNode():
     def set_data(self, data):
         self.data = data
         
-    def write_data(self, data=None):
-        '''Write data to data node
+    def write_data(self,
+                   data=None,
+                   to_node=True,
+                   to_file=False,
+                   file_path=None):
+        '''Write data to data node and data file
         '''
         if not data:
             data = self.data
-        self._set_str_attr(self.__DATAS_ATTR__, value=data)
-    
-    def read_data(self):
-        '''Read data from data node
-        '''
-        self._assert_exists()
         
-        # Reset node data
+        # Write data to file
+        if to_file:
+            file_handlers.write_data_file(file_path=file_path,
+                                         data=data)
+            self._set_str_attr(self.__FILE_ATTR__, value=file_path)
+        
+        # Write data to node attribute
+        if to_node:
+            self._set_str_attr(self.__DATAS_ATTR__, value=data)
+    
+    def read_data_from_node(self):
+        '''Read data from data node or data file
+        '''
+        # Init data dict
         data = dict()
         
         # Get data from attribute
@@ -153,6 +182,36 @@ class DataNode():
         
         return data
     
+    def read_data_from_file(self):
+        '''Read data from specified file
+        '''
+        file_path = self.get_file_path()
+        if not file_path:
+            return
+        if not os.path.exists(file_path):
+            return
+        
+        return file_handlers.read_data_file(file_path)
+        
+    def read_data(self, from_file=True):
+        '''Read picker data
+        '''
+        self._assert_exists()
+        
+        # Init data dict
+        data = dict()
+        
+        # Read data from file
+        if from_file:
+            data = self.read_data_from_file()
+            
+        # Read data from node
+        if not data:
+            data = self.read_data_from_node()
+        
+        self.data = data
+        return data
+        
     def countains(self, node):
         '''Will return True if data_node contains selected node in related controls data
         '''

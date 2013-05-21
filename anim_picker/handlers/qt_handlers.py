@@ -2,6 +2,7 @@
 # This file is part of "anim_picker" and covered by the LGPLv3 or later,
 # read COPYING and COPYING.LESSER for details.
 
+from maya import OpenMayaUI
 
 # Main Qt support
 try:
@@ -37,3 +38,14 @@ def unwrap_instance(qt_object):
         return long(sip.unwrapinstance(qt_object))
     elif globals().has_key('shiboken'):
         return long(shiboken.getCppPointer(qt_object)[0])
+    
+    
+def get_maya_window():
+    '''Get the maya main window as a QMainWindow instance
+    '''
+    try:
+        ptr = OpenMayaUI.MQtUtil.mainWindow()
+        return wrap_instance(long(ptr), QtGui.QMainWindow)
+    except:
+        #    fails at import on maya launch since ui isn't up yet
+        return None
