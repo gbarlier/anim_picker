@@ -4448,7 +4448,8 @@ def load(edit=False, multi=False):
     '''Load anim_picker ui window
     '''
     # Return existing window if not multi option
-    if not multi:
+    # Force multi in edit mode to prevent locked window issues
+    if not (edit or multi):
         dock_pt = OpenMayaUI.MQtUtil.findControl(MainDockWindow.__OBJ_NAME__)
         if dock_pt:
             # Get dock qt instance
