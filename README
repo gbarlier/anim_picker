@@ -1,0 +1,14 @@
+# Copyright (c) 2012-2013 Guillaume Barlier
+# This file is part of "anim_picker" and covered by the LGPLv3 or later,
+# read COPYING and COPYING.LESSER for details.
+
+You can check for new version on my website:
+http://guillaume.barlier.com/code
+
+## DESCRIPTION
+The Animation picker tool called "anim_picker" for short is a tool for Maya.
+This tool allows you to create a graphical interface for quick animation controls selection.
+
+## DEPENDENCIES
+This tools requires PyQt4 or PySide to work and Maya of course
+It was coded with PyQt4 v4.7.1 and tested with PySide v 1.1.2 
