@@ -1142,6 +1142,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         
         self.namespace = namespace
         self.main_window = main_window
+        self.setParent(self.main_window)
         
         # Scale view in Y for positive Y values (maya-like)
         self.scale(1, -1)
