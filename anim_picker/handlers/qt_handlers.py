@@ -17,10 +17,13 @@ try:
     import sip
 except:
     try:
-        from PySide import shiboken
+        import shiboken
     except:
-        raise Exception, 'Failed to import sip or shiboken'
-    
+        try:
+            from PySide import shiboken
+        except:
+            raise Exception, 'Failed to import sip or shiboken'
+        
     
 # Instance handling
 def wrap_instance(ptr, base):
