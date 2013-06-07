@@ -1340,7 +1340,8 @@ class GraphicViewWidget(QtGui.QGraphicsView):
     def add_picker_item(self, event=None):
         '''Add new PickerItem to current view
         '''
-        ctrl = PickerItem(namespace=self.namespace)
+        ctrl = PickerItem(main_window=self.main_window,
+                          namespace=self.namespace)
         ctrl.setParent(self)
         self.scene().addItem(ctrl)
         
@@ -2016,8 +2017,8 @@ class PickerItem(DefaultPolygon):
     def __init__(self,
                  parent=None,
                  point_count=4,
-                 namespace=None):
-        
+                 namespace=None,
+                 main_window=None):
         DefaultPolygon.__init__(self, parent=parent)
         self.point_count = point_count
         
@@ -2030,6 +2031,7 @@ class PickerItem(DefaultPolygon):
         
         # Default vars
         self.namespace = namespace
+        self.main_window = main_window
         self._edit_status = False
         self.edit_window = None
         
@@ -2431,7 +2433,7 @@ class PickerItem(DefaultPolygon):
             except:pass
             
         # Init new window
-        self.edit_window = ItemOptionsWindow(parent=self.parentWidget(), picker_item=self)
+        self.edit_window = ItemOptionsWindow(parent=self.main_window, picker_item=self)
         
         # Show window
         self.edit_window.show()
@@ -2954,8 +2956,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
     #-----------------------------------------------------------------------------------------------
     #    constructor
     def __init__(self, parent=None, picker_item=None):
-        QtGui.QMainWindow.__init__(self, parent=None)
-        
+        QtGui.QMainWindow.__init__(self, parent=parent)
         self.picker_item = picker_item
         
         # Define size

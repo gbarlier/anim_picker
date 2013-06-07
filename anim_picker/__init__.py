@@ -2,7 +2,7 @@
 # This file is part of "anim_picker" and covered by the LGPLv3 or later,
 # read COPYING and COPYING.LESSER for details.
 
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 def load(edit=False, multi=False):
     '''Fast load method
