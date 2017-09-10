@@ -3456,7 +3456,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
             return
         
         # Open color picker dialog
-        color = QtGui.QColorDialog.getColor(initial=self.picker_item.get_color(),
+        color = QtWidgets.QColorDialog.getColor(initial=self.picker_item.get_color(),
                                             parent=self)
         
         # Abort on invalid color (cancel button)
@@ -3532,7 +3532,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
             return
         
         # Open color picker dialog
-        color = QtGui.QColorDialog.getColor(initial=self.picker_item.get_text_color(),
+        color = QtWidgets.QColorDialog.getColor(initial=self.picker_item.get_text_color(),
                                             parent=self)
         
         # Abort on invalid color (cancel button)
