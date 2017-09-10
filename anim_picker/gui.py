@@ -19,7 +19,7 @@ from handlers import maya_handlers
 from handlers import python_handlers
 
 from handlers import qt_handlers
-from handlers.qt_handlers import QtCore, QtGui, QtOpenGL
+from handlers.qt_handlers import QtCore, QtWidgets, QtOpenGL, QtWidgets
 
 from handlers import __EDIT_MODE__
 from handlers import __SELECTION__
@@ -44,17 +44,17 @@ def get_images_folder_path():
 #===============================================================================
 # Custom Widgets ---
 #===============================================================================      
-class CallbackButton(QtGui.QPushButton):
+class CallbackButton(QtWidgets.QPushButton):
     '''Dynamic callback button
     '''
     def __init__(self, callback=None, *args, **kwargs):
-        QtGui.QPushButton.__init__(self)
+        QtWidgets.QPushButton.__init__(self)
         self.callback   =   callback
         self.args       =   args
         self.kwargs     =   kwargs
         
         # Connect event
-        self.connect(self, QtCore.SIGNAL("clicked()"), self.click_event)
+        self.clicked.connect(self.click_event)
         
         # Set tooltip
         if hasattr(self.callback, '__doc__') and self.callback.__doc__:
@@ -66,18 +66,18 @@ class CallbackButton(QtGui.QPushButton):
         self.callback(*self.args, **self.kwargs)
         
 
-class CallbackComboBox(QtGui.QComboBox):
+class CallbackComboBox(QtWidgets.QComboBox):
     '''Dynamic combo box object
     '''
     def __init__(self, callback=None, status_tip=None, *args, **kwargs):
-        QtGui.QComboBox.__init__(self)
+        QtWidgets.QComboBox.__init__(self)
         self.callback = callback
         self.args = args
         self.kwargs = kwargs
         if status_tip:
             self.setStatusTip(status_tip)
         
-        self.connect(self, QtCore.SIGNAL('currentIndexChanged(int)'), self.index_change_event)
+        self.currentIndexChanged.connect(self.index_change_event)
     
     def index_change_event(self, index):
         if not self.callback:
@@ -85,14 +85,14 @@ class CallbackComboBox(QtGui.QComboBox):
         self.callback(index=index, *self.args, **self.kwargs)
         
         
-class CallBackSpinBox(QtGui.QSpinBox):
+class CallBackSpinBox(QtWidgets.QSpinBox):
     def __init__(self,
                  callback,
                  value=0,
                  min=0,
                  max=9999,
                  *args, **kwargs):
-        QtGui.QSpinBox.__init__(self)
+        QtWidgets.QSpinBox.__init__(self)
         self.callback = callback
         self.args = args
         self.kwargs = kwargs
@@ -102,7 +102,7 @@ class CallBackSpinBox(QtGui.QSpinBox):
         self.setValue(value)
         
         # Signals
-        self.connect(self, QtCore.SIGNAL("valueChanged(int)"), self.valueChangedEvent)
+        self.valueChanged.connect(self.valueChangedEvent)
     
     def valueChangedEvent(self, value):
         if not self.callback:
@@ -110,7 +110,7 @@ class CallBackSpinBox(QtGui.QSpinBox):
         self.callback(value=value, *self.args, **self.kwargs)
 
 
-class CallBackDoubleSpinBox(QtGui.QDoubleSpinBox):
+class CallBackDoubleSpinBox(QtWidgets.QDoubleSpinBox):
     def __init__(self,
                  callback,
                  value=0,
@@ -118,7 +118,7 @@ class CallBackDoubleSpinBox(QtGui.QDoubleSpinBox):
                  max=9999,
                  *args,
                  **kwargs):
-        QtGui.QDoubleSpinBox.__init__(self)
+        QtWidgets.QDoubleSpinBox.__init__(self)
         self.callback = callback
         self.args = args
         self.kwargs = kwargs
@@ -128,16 +128,16 @@ class CallBackDoubleSpinBox(QtGui.QDoubleSpinBox):
         self.setValue(value)
         
         # Signals
-        self.connect(self, QtCore.SIGNAL("valueChanged(double)"), self.valueChangedEvent)
+        self.valueChanged.connect(self.valueChangedEvent)
     
     def valueChangedEvent(self, value):
         if not self.callback:
             return
         self.callback(value=value, *self.args, **self.kwargs)
         
-class CallbackLineEdit(QtGui.QLineEdit):
+class CallbackLineEdit(QtWidgets.QLineEdit):
     def __init__(self, callback, text=None, *args, **kwargs):
-        QtGui.QLineEdit.__init__(self)
+        QtWidgets.QLineEdit.__init__(self)
         self.callback   =   callback
         self.args = args
         self.kwargs = kwargs
@@ -147,7 +147,7 @@ class CallbackLineEdit(QtGui.QLineEdit):
             self.setText(text)
         
         # Signals
-        self.connect(self, QtCore.SIGNAL("returnPressed()"), self.return_pressed_event)
+        self.returnPressed.connect(self.return_pressed_event)
         
     def return_pressed_event(self):
         '''Will return text on return press
@@ -155,16 +155,16 @@ class CallbackLineEdit(QtGui.QLineEdit):
         self.callback(text=self.text(), *self.args, **self.kwargs)
         
         
-class CallbackListWidget(QtGui.QListWidget):
+class CallbackListWidget(QtWidgets.QListWidget):
     '''Dynamic List Widget object
     '''
     def __init__(self, callback=None, *args, **kwargs):
-        QtGui.QListWidget.__init__(self)
+        QtWidgets.QListWidget.__init__(self)
         self.callback   =   callback
         self.args       =   args
         self.kwargs     =   kwargs
         
-        self.connect(self, QtCore.SIGNAL('itemDoubleClicked (QListWidgetItem *)'), self.double_click_event)
+        self.itemDoubleClicked.connect(self.double_click_event)
         
         # Set selection mode to multi
         self.setSelectionMode(self.ExtendedSelection)
@@ -175,7 +175,7 @@ class CallbackListWidget(QtGui.QListWidget):
         self.callback(item=item, *self.args, **self.kwargs)
      
      
-class CallbackCheckBoxWidget(QtGui.QCheckBox):
+class CallbackCheckBoxWidget(QtWidgets.QCheckBox):
     '''Dynamic CheckBox Widget object
     '''
     def __init__(self,
@@ -184,7 +184,7 @@ class CallbackCheckBoxWidget(QtGui.QCheckBox):
                  label=None,
                  *args,
                  **kwargs):
-        QtGui.QCheckBox.__init__(self)
+        QtWidgets.QCheckBox.__init__(self)
         self.callback = callback
         self.args = args
         self.kwargs = kwargs
@@ -194,7 +194,7 @@ class CallbackCheckBoxWidget(QtGui.QCheckBox):
             self.setCheckState(QtCore.Qt.Checked)
         self.setText(label or '')
         
-        self.connect(self, QtCore.SIGNAL("toggled(bool)"), self.toggled_event)
+        self.toggled.connect(self.toggled_event)
 
     def toggled_event(self, value):
         if not self.callback:
@@ -203,29 +203,29 @@ class CallbackCheckBoxWidget(QtGui.QCheckBox):
         self.callback(*self.args, **self.kwargs) 
 
 
-class CallbackRadioButtonWidget(QtGui.QRadioButton):
+class CallbackRadioButtonWidget(QtWidgets.QRadioButton):
     '''Dynamic callback radioButton
     '''
     def __init__(self, name_value, callback, checked=False):
-        QtGui.QRadioButton.__init__(self)
+        QtWidgets.QRadioButton.__init__(self)
         self.name_value = name_value
         self.callback = callback
         
         self.setChecked(checked)
-            
-        self.connect(self, QtCore.SIGNAL("clicked()"), self.click_event)
+
+        self.clicked.connect(self.click_event)
         
     def click_event(self):
         self.callback(self.name_value)
                 
 
-class CtrlListWidgetItem(QtGui.QListWidgetItem):
+class CtrlListWidgetItem(QtWidgets.QListWidgetItem):
     '''
     List widget item for influence list
     will handle checks, color feedbacks and edits
     '''
     def __init__(self, index=0, text=None):
-        QtGui.QListWidgetItem.__init__(self)
+        QtWidgets.QListWidgetItem.__init__(self)
         
         self.index = index
         if text:
@@ -239,7 +239,7 @@ class CtrlListWidgetItem(QtGui.QListWidgetItem):
             return None
         
         # Run default setText action
-        QtGui.QListWidgetItem.setText(self, text)
+        QtWidgets.QListWidgetItem.setText(self, text)
         
         # Set color status
         self.set_color_status()
@@ -274,14 +274,14 @@ class CtrlListWidgetItem(QtGui.QListWidgetItem):
         self.setForeground(brush)
  
  
-class ContextMenuTabWidget(QtGui.QTabWidget):
+class ContextMenuTabWidget(QtWidgets.QTabWidget):
     '''Custom tab widget with specific context menu support
     '''
     def __init__(self,
                  parent,
                  main_window=None,
                  *args, **kwargs):
-        QtGui.QTabWidget.__init__(self, parent, *args, **kwargs)
+        QtWidgets.QTabWidget.__init__(self, parent, *args, **kwargs)
         self.main_window = main_window
         
     def contextMenuEvent(self, event):
@@ -292,18 +292,18 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
             return
             
         # Init context menu
-        menu = QtGui.QMenu(self)
+        menu = QtWidgets.QMenu(self)
         
         # Build context menu
-        rename_action = QtGui.QAction("Rename", None)
+        rename_action = QtWidgets.QAction("Rename", None)
         rename_action.triggered.connect(self.rename_event)
         menu.addAction(rename_action)
         
-        add_action = QtGui.QAction("Add Tab", None)
+        add_action = QtWidgets.QAction("Add Tab", None)
         add_action.triggered.connect(self.add_tab_event)
         menu.addAction(add_action)
         
-        remove_action = QtGui.QAction("Remove Tab", None)
+        remove_action = QtWidgets.QAction("Remove Tab", None)
         remove_action.triggered.connect(self.remove_tab_event)
         menu.addAction(remove_action)
         
@@ -326,10 +326,10 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         index = self.currentIndex()
         
         # Open input window
-        name, ok = QtGui.QInputDialog.getText(self,
+        name, ok = QtWidgets.QInputDialog.getText(self,
                                               self.tr("Tab name"),
                                               self.tr('New name'),
-                                              QtGui.QLineEdit.Normal,
+                                              QtWidgets.QLineEdit.Normal,
                                               self.tr(self.tabText(index)) )
         if not (ok and name):
             return
@@ -341,10 +341,10 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         '''Will open dialog to get tab name and create a new tab
         '''
         # Open input window
-        name, ok = QtGui.QInputDialog.getText(self,
+        name, ok = QtWidgets.QInputDialog.getText(self,
                                               self.tr("Create new tab"),
                                               self.tr('Tab name'),
-                                              QtGui.QLineEdit.Normal,
+                                              QtWidgets.QLineEdit.Normal,
                                               self.tr('') )
         if not (ok and name):
             return
@@ -362,11 +362,11 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
         index = self.currentIndex()
         
         # Open confirmation
-        reply = QtGui.QMessageBox.question(self, 'Delete',
+        reply = QtWidgets.QMessageBox.question(self, 'Delete',
                                            "Delete tab '%s'?"%self.tabText(index),
-                                           QtGui.QMessageBox.Yes | QtGui.QMessageBox.No,
-                                           QtGui.QMessageBox.No)
-        if reply == QtGui.QMessageBox.No:
+                                           QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                                           QtWidgets.QMessageBox.No)
+        if reply == QtWidgets.QMessageBox.No:
             return
         
         # Remove tab
@@ -418,12 +418,12 @@ class ContextMenuTabWidget(QtGui.QTabWidget):
                 view.set_data(tab_content)
     
         
-class BackgroundWidget(QtGui.QLabel):
+class BackgroundWidget(QtWidgets.QLabel):
     '''QLabel widget to support background options for tabs.
     '''
     def __init__(self,
                  parent=None):
-        QtGui.QLabel.__init__(self, parent )
+        QtWidgets.QLabel.__init__(self, parent )
         
         self.setBackgroundRole(QtGui.QPalette.Base)
         self.background = None
@@ -432,7 +432,7 @@ class BackgroundWidget(QtGui.QLabel):
         assert os.path.exists(path), 'Could not find file%s'%path
     
     def resizeEvent(self, event):
-        QtGui.QLabel.resizeEvent(self, event)
+        QtWidgets.QLabel.resizeEvent(self, event)
         self._set_stylesheet_background()
     
     def _set_stylesheet_background(self):
@@ -464,7 +464,7 @@ class BackgroundWidget(QtGui.QLabel):
     def file_dialog(self):
         '''Get file dialog window starting in default folder
         '''
-        file_path = QtGui.QFileDialog.getOpenFileName(self,
+        file_path = QtWidgets.QFileDialog.getOpenFileName(self,
                                                       'Choose picture',
                                                       get_images_folder_path())
         # Filter return result (based on qt version)
@@ -524,15 +524,15 @@ class SnapshotWidget(BackgroundWidget):
             return
         
         # Init context menu
-        menu = QtGui.QMenu(self)
+        menu = QtWidgets.QMenu(self)
         
         # Add choose action
-        choose_action = QtGui.QAction("Select Picture", None)
+        choose_action = QtWidgets.QAction("Select Picture", None)
         choose_action.triggered.connect(self.select_image)
         menu.addAction(choose_action)
         
         # Add reset action
-        reset_action = QtGui.QAction("Reset", None)
+        reset_action = QtWidgets.QAction("Reset", None)
         reset_action.triggered.connect(self.reset_image)
         menu.addAction(reset_action)
             
@@ -565,7 +565,7 @@ class SnapshotWidget(BackgroundWidget):
         return self.background
 
 
-class OverlayWidget(QtGui.QWidget):
+class OverlayWidget(QtWidgets.QWidget):
     '''
     Transparent overlay type widget
     
@@ -577,7 +577,7 @@ class OverlayWidget(QtGui.QWidget):
     
     '''
     def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         
         self.set_default_background_color()
         self.setup()
@@ -595,7 +595,7 @@ class OverlayWidget(QtGui.QWidget):
 
     def setup(self):
         # Add default layout
-        self.layout = QtGui.QVBoxLayout(self)
+        self.layout = QtWidgets.QVBoxLayout(self)
         
         # Hide by default
         self.hide()
@@ -648,7 +648,7 @@ class State():
         self.state = state
         
     
-class DataCopyDialog(QtGui.QDialog):
+class DataCopyDialog(QtWidgets.QDialog):
     '''PickerItem data copying dialog handler
     '''
     __DATA__ = dict()
@@ -677,7 +677,7 @@ class DataCopyDialog(QtGui.QDialog):
     
     def __init__(self,
                  parent=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.apply = False
         self.setup()
         
@@ -687,7 +687,7 @@ class DataCopyDialog(QtGui.QDialog):
         self.setWindowTitle('Copy/Paste')
         
         # Add layout
-        self.main_layout = QtGui.QVBoxLayout(self)
+        self.main_layout = QtWidgets.QVBoxLayout(self)
         
         # Add data field options
         for state in self.__STATES__:
@@ -698,7 +698,7 @@ class DataCopyDialog(QtGui.QDialog):
             self.main_layout.addWidget(cb)
         
         # Add buttons
-        btn_layout = QtGui.QHBoxLayout()
+        btn_layout = QtWidgets.QHBoxLayout()
         self.main_layout.addLayout(btn_layout)
         
         ok_btn = CallbackButton(callback=self.accept_event)
@@ -781,7 +781,7 @@ class DataCopyDialog(QtGui.QDialog):
         return data
     
 
-class CustomScriptEditDialog(QtGui.QDialog):
+class CustomScriptEditDialog(QtWidgets.QDialog):
     '''Custom python script window (used for custom picker item action and context menu)
     '''
     __TITLE__ = 'Custom script'
@@ -790,7 +790,7 @@ class CustomScriptEditDialog(QtGui.QDialog):
                  parent=None,
                  cmd=None,
                  item=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         
         self.cmd = cmd
         self.picker_item = item
@@ -816,10 +816,10 @@ class CustomScriptEditDialog(QtGui.QDialog):
         self.setWindowTitle(self.__TITLE__)
         
         # Add layout
-        self.main_layout = QtGui.QVBoxLayout(self)
+        self.main_layout = QtWidgets.QVBoxLayout(self)
         
         # Add cmd txt field
-        self.cmd_widget = QtGui.QTextEdit()
+        self.cmd_widget = QtWidgets.QTextEdit()
         if self.cmd:
             self.cmd_widget.setText(self.cmd)
         else:
@@ -828,7 +828,7 @@ class CustomScriptEditDialog(QtGui.QDialog):
         self.main_layout.addWidget(self.cmd_widget)
         
         # Add buttons
-        btn_layout = QtGui.QHBoxLayout()
+        btn_layout = QtWidgets.QHBoxLayout()
         self.main_layout.addLayout(btn_layout)
         
         ok_btn = CallbackButton(callback=self.accept_event)
@@ -913,13 +913,13 @@ class CustomMenuEditDialog(CustomScriptEditDialog):
         CustomScriptEditDialog.setup(self)
         
         # Add name line edit
-        name_layout = QtGui.QHBoxLayout(self)
+        name_layout = QtWidgets.QHBoxLayout(self)
         
-        label = QtGui.QLabel()
+        label = QtWidgets.QLabel()
         label.setText('Name')
         name_layout.addWidget(label)
         
-        self.name_widget = QtGui.QLineEdit()
+        self.name_widget = QtWidgets.QLineEdit()
         if self.name:
             self.name_widget.setText(self.name)
         name_layout.addWidget(self.name_widget)
@@ -930,7 +930,7 @@ class CustomMenuEditDialog(CustomScriptEditDialog):
         '''Accept button event, check for name
         '''
         if not self.name_widget.text():
-            QtGui.QMessageBox.warning(self,
+            QtWidgets.QMessageBox.warning(self,
                                       "Warning",
                                       "You need to specify a menu name")
             return
@@ -960,14 +960,14 @@ class CustomMenuEditDialog(CustomScriptEditDialog):
         return win.get_values()
     
 
-class SearchAndReplaceDialog(QtGui.QDialog):
+class SearchAndReplaceDialog(QtWidgets.QDialog):
     '''Search and replace dialog window
     '''
     __SEARCH_STR__ = '^L_'
     __REPLACE_STR__ = 'R_'
     
     def __init__(self, parent=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         
         self.apply = False
         self.setup()
@@ -978,19 +978,19 @@ class SearchAndReplaceDialog(QtGui.QDialog):
         self.setWindowTitle('Search And Replace')
         
         # Add layout
-        self.main_layout = QtGui.QVBoxLayout(self)
+        self.main_layout = QtWidgets.QVBoxLayout(self)
         
         # Add line edits
-        self.search_widget = QtGui.QLineEdit()
+        self.search_widget = QtWidgets.QLineEdit()
         self.search_widget.setText(self.__SEARCH_STR__)
         self.main_layout.addWidget(self.search_widget)
         
-        self.replace_widget = QtGui.QLineEdit()
+        self.replace_widget = QtWidgets.QLineEdit()
         self.replace_widget.setText(self.__REPLACE_STR__)
         self.main_layout.addWidget(self.replace_widget)
     
         # Add buttons
-        btn_layout = QtGui.QHBoxLayout()
+        btn_layout = QtWidgets.QHBoxLayout()
         self.main_layout.addLayout(btn_layout)
         
         ok_btn = CallbackButton(callback=self.accept_event)
@@ -1039,7 +1039,7 @@ class SearchAndReplaceDialog(QtGui.QDialog):
         return win.get_values()
 
         
-class OrderedGraphicsScene(QtGui.QGraphicsScene):
+class OrderedGraphicsScene(QtWidgets.QGraphicsScene):
     '''
     Custom QGraphicsScene with x/y axis line options for origin feedback in edition mode
     (provides a center reference to work from, view will fit what ever is the content in use mode).
@@ -1050,7 +1050,7 @@ class OrderedGraphicsScene(QtGui.QGraphicsScene):
     __DEFAULT_SCENE_HEIGHT__ = 600
     
     def __init__(self, parent=None):
-        QtGui.QGraphicsScene.__init__(self, parent=parent)
+        QtWidgets.QGraphicsScene.__init__(self, parent=parent)
         
         self.set_default_size()
         self._z_index = 0
@@ -1091,7 +1091,7 @@ class OrderedGraphicsScene(QtGui.QGraphicsScene):
     def clear(self):
         '''Reset default z index on clear
         '''
-        QtGui.QGraphicsScene.clear(self)
+        QtWidgets.QGraphicsScene.clear(self)
         self._z_index = 0
         
     def set_picker_items(self, items):
@@ -1099,7 +1099,7 @@ class OrderedGraphicsScene(QtGui.QGraphicsScene):
         '''
         self.clear()
         for item in items:
-            QtGui.QGraphicsScene.addItem(self, item)
+            QtWidgets.QGraphicsScene.addItem(self, item)
             self.set_z_value(item)
         self.add_axis_lines()
             
@@ -1123,11 +1123,11 @@ class OrderedGraphicsScene(QtGui.QGraphicsScene):
     def addItem(self, item):
         '''Overload to keep axis on top
         '''    
-        QtGui.QGraphicsScene.addItem(self, item)
+        QtWidgets.QGraphicsScene.addItem(self, item)
         self.set_z_value(item)
         
 
-class GraphicViewWidget(QtGui.QGraphicsView):
+class GraphicViewWidget(QtWidgets.QGraphicsView):
     '''Graphic view widget that display the "polygons" picker items 
     '''
     __DEFAULT_SCENE_WIDTH__ = 400
@@ -1136,7 +1136,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
     def __init__(self,
                  namespace=None,
                  main_window=None):
-        QtGui.QGraphicsView.__init__(self)
+        QtWidgets.QGraphicsView.__init__(self)
         
         self.setScene(OrderedGraphicsScene())
         
@@ -1182,7 +1182,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
     def mousePressEvent(self, event):
         '''Overload to clear selection on empty area
         '''
-        QtGui.QGraphicsView.mousePressEvent(self, event)
+        QtWidgets.QGraphicsView.mousePressEvent(self, event)
         if event.buttons() == QtCore.Qt.LeftButton:
             scene_pos = self.mapToScene(event.pos())
             
@@ -1203,7 +1203,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
 #        self.drag_active = True            
     
     def mouseMoveEvent(self, event):
-        result = QtGui.QGraphicsView.mouseMoveEvent(self, event)
+        result = QtWidgets.QGraphicsView.mouseMoveEvent(self, event)
         
         if self.pan_active:
             current_center = self.get_center_pos()
@@ -1216,7 +1216,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         
         
     def mouseReleaseEvent(self, event):
-        result = QtGui.QGraphicsView.mouseReleaseEvent(self, event)
+        result = QtWidgets.QGraphicsView.mouseReleaseEvent(self, event)
 
 #        # Area selection
 #        if (self.drag_active and event.button() == QtCore.Qt.LeftButton):
@@ -1255,7 +1255,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         '''Wheel event overload to add zoom support
         '''
         # Run default event
-        QtGui.QGraphicsView.wheelEvent(self, event)
+        QtWidgets.QGraphicsView.wheelEvent(self, event)
         
         # Define zoom factor
         factor = 1.1
@@ -1280,42 +1280,42 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         picker_item = self.itemAt(event.pos())
         if picker_item:
             # Run default method that call on childs
-            return QtGui.QGraphicsView.contextMenuEvent(self, event)
+            return QtWidgets.QGraphicsView.contextMenuEvent(self, event)
         
         # Init context menu
-        menu = QtGui.QMenu(self)
+        menu = QtWidgets.QMenu(self)
         
         # Build Edit move options
         if __EDIT_MODE__.get():
-            add_action = QtGui.QAction("Add Item", None)
+            add_action = QtWidgets.QAction("Add Item", None)
             add_action.triggered.connect(self.add_picker_item)
             menu.addAction(add_action)
             
-            toggle_handles_action = QtGui.QAction("Toggle all handles", None)
+            toggle_handles_action = QtWidgets.QAction("Toggle all handles", None)
             toggle_handles_action.triggered.connect(self.toggle_all_handles_event)
             menu.addAction(toggle_handles_action)
             
             menu.addSeparator()
             
-            background_action = QtGui.QAction("Set background image", None)
+            background_action = QtWidgets.QAction("Set background image", None)
             background_action.triggered.connect(self.set_background_event)
             menu.addAction(background_action)
             
-            reset_background_action = QtGui.QAction("Reset background", None)
+            reset_background_action = QtWidgets.QAction("Reset background", None)
             reset_background_action.triggered.connect(self.reset_background_event)
             menu.addAction(reset_background_action)
             
             menu.addSeparator()
         
         if __EDIT_MODE__.get_main():
-            toggle_mode_action = QtGui.QAction("Toggle Mode", None)
+            toggle_mode_action = QtWidgets.QAction("Toggle Mode", None)
             toggle_mode_action.triggered.connect(self.toggle_mode_event)
             menu.addAction(toggle_mode_action)
     
             menu.addSeparator()        
         
         # Common actions
-        reset_view_action = QtGui.QAction("Reset view", None)
+        reset_view_action = QtWidgets.QAction("Reset view", None)
         reset_view_action.triggered.connect(self.fit_scene_content)
         menu.addAction(reset_view_action)
 
@@ -1329,7 +1329,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         self.fit_scene_content()
         
         # Run default resizeEvent
-        return QtGui.QGraphicsView.resizeEvent(self, *args, **kwargs)
+        return QtWidgets.QGraphicsView.resizeEvent(self, *args, **kwargs)
         
     def fit_scene_content(self):
         '''Will fit scene content to view, by scaling it
@@ -1414,7 +1414,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         '''Set background image pick dialog window
         '''
         # Open file dialog
-        file_path = QtGui.QFileDialog.getOpenFileName(self,
+        file_path = QtWidgets.QFileDialog.getOpenFileName(self,
                                                       'Choose a background',
                                                       get_images_folder_path())
         
@@ -1505,7 +1505,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         '''Default method override to draw view custom background image
         '''
         # Run default method
-        result = QtGui.QGraphicsView.drawBackground(self, painter, rect)
+        result = QtWidgets.QGraphicsView.drawBackground(self, painter, rect)
         
         # Stop here if view has no background
         if not self.background_image:
@@ -1522,7 +1522,7 @@ class GraphicViewWidget(QtGui.QGraphicsView):
         '''Default method override to draw origin axis in edit mode
         '''
         # Run default method
-        result =  QtGui.QGraphicsView.drawForeground(self, painter, rect)
+        result =  QtWidgets.QGraphicsView.drawForeground(self, painter, rect)
           
         # Paint axis in edit mode
         if __EDIT_MODE__.get():
@@ -1553,13 +1553,13 @@ class GraphicViewWidget(QtGui.QGraphicsView):
             painter.drawLine(y_line)
     
     
-class DefaultPolygon(QtGui.QGraphicsObject):
+class DefaultPolygon(QtWidgets.QGraphicsObject):
     '''Default polygon class, with move and hover support
     '''
     __DEFAULT_COLOR__ = QtGui.QColor(0,0,0,255)
     
     def __init__(self, parent=None):
-        QtGui.QGraphicsObject.__init__(self, parent=parent)
+        QtWidgets.QGraphicsObject.__init__(self, parent=parent)
         
         if parent:
             self.setParent(parent)
@@ -1574,14 +1574,14 @@ class DefaultPolygon(QtGui.QGraphicsObject):
     def hoverEnterEvent(self, event=None):
         '''Lightens background color on mose over
         '''
-        QtGui.QGraphicsObject.hoverEnterEvent(self, event)
+        QtWidgets.QGraphicsObject.hoverEnterEvent(self, event)
         self._hovered = True
         self.update()
     
     def hoverLeaveEvent(self, event=None):
         '''Resets mouse over background color
         '''
-        QtGui.QGraphicsObject.hoverLeaveEvent(self, event)
+        QtWidgets.QGraphicsObject.hoverLeaveEvent(self, event)
         self._hovered = False
         self.update()
     
@@ -1603,7 +1603,7 @@ class DefaultPolygon(QtGui.QGraphicsObject):
                 self.scene().update()
         
         # Run default action
-        return QtGui.QGraphicsObject.itemChange(self, change, value)
+        return QtWidgets.QGraphicsObject.itemChange(self, change, value)
     
     def get_color(self):
         '''Get polygon color
@@ -1781,7 +1781,7 @@ class PointHandle(DefaultPolygon):
 class Polygon(DefaultPolygon):
     '''
     Picker controls visual graphic object
-    (inherits from QtGui.QGraphicsObject rather than QtGui.QGraphicsItem for signal support)
+    (inherits from QtWidgets.QGraphicsObject rather than QtWidgets.QGraphicsItem for signal support)
     '''
     __DEFAULT_COLOR__ = QtGui.QColor(200,200,200,180)
     __DEFAULT_SELECT_COLOR__ = QtGui.QColor(0,30,0,180)
@@ -1902,13 +1902,13 @@ class Polygon(DefaultPolygon):
         Polygon.__DEFAULT_COLOR__ = color 
         
 
-class PointHandleIndex(QtGui.QGraphicsSimpleTextItem):
+class PointHandleIndex(QtWidgets.QGraphicsSimpleTextItem):
     '''Point handle index text element
     '''
     __DEFAULT_COLOR__ = QtGui.QColor(130,50,50,255)
     
     def __init__(self, parent=None, scene=None, index=0):
-        QtGui.QGraphicsSimpleTextItem.__init__(self, parent, scene)
+        QtWidgets.QGraphicsSimpleTextItem.__init__(self, parent, scene)
         
         # Init defaults
         self.set_size()
@@ -1940,16 +1940,16 @@ class PointHandleIndex(QtGui.QGraphicsSimpleTextItem):
     def setText(self, text):
         '''Override default setText method to force unicode on int index input
         '''
-        return QtGui.QGraphicsSimpleTextItem.setText(self, unicode(text))
+        return QtWidgets.QGraphicsSimpleTextItem.setText(self, unicode(text))
         
         
-class GraphicText(QtGui.QGraphicsSimpleTextItem):
+class GraphicText(QtWidgets.QGraphicsSimpleTextItem):
     '''Picker item text element
     '''
     __DEFAULT_COLOR__ = QtGui.QColor(30,30,30,255)
     
     def __init__(self, parent=None, scene=None):
-        QtGui.QGraphicsSimpleTextItem.__init__(self, parent, scene)
+        QtWidgets.QGraphicsSimpleTextItem.__init__(self, parent, scene)
         
         # Counter view scale
         self.scale_transform = QtGui.QTransform().scale(1, -1)
@@ -2253,60 +2253,60 @@ class PickerItem(DefaultPolygon):
         '''Context menu (right click) in edition mode
         '''
         # Init context menu
-        menu = QtGui.QMenu(self.parent())
+        menu = QtWidgets.QMenu(self.parent())
         
         # Build edit context menu
-        options_action = QtGui.QAction("Options", None)
+        options_action = QtWidgets.QAction("Options", None)
         options_action.triggered.connect(self.edit_options)
         menu.addAction(options_action)
         
-        handles_action = QtGui.QAction("Toggle handles", None)
+        handles_action = QtWidgets.QAction("Toggle handles", None)
         handles_action.triggered.connect(self.toggle_edit_status)
         menu.addAction(handles_action)
         
         menu.addSeparator()
         
         # Shape options menu
-        shape_menu = QtGui.QMenu(menu)
+        shape_menu = QtWidgets.QMenu(menu)
         shape_menu.setTitle('Shape')
         
-        move_action = QtGui.QAction("Move to center", None)
+        move_action = QtWidgets.QAction("Move to center", None)
         move_action.triggered.connect(self.move_to_center)
         shape_menu.addAction(move_action)
         
-        shp_mirror_action = QtGui.QAction("Mirror shape", None)
+        shp_mirror_action = QtWidgets.QAction("Mirror shape", None)
         shp_mirror_action.triggered.connect(self.mirror_shape)
         shape_menu.addAction(shp_mirror_action)
         
-        color_mirror_action = QtGui.QAction("Mirror color", None)
+        color_mirror_action = QtWidgets.QAction("Mirror color", None)
         color_mirror_action.triggered.connect(self.mirror_color)
         shape_menu.addAction(color_mirror_action)
         
         menu.addMenu(shape_menu)
         
-        move_back_action = QtGui.QAction("Move to back", None)
+        move_back_action = QtWidgets.QAction("Move to back", None)
         move_back_action.triggered.connect(self.move_to_back)
         menu.addAction(move_back_action)
         
-        move_front_action = QtGui.QAction("Move to front", None)
+        move_front_action = QtWidgets.QAction("Move to front", None)
         move_front_action.triggered.connect(self.move_to_front)
         menu.addAction(move_front_action)
         
         menu.addSeparator()
         
         # Copy handling
-        copy_action = QtGui.QAction("Copy", None)
+        copy_action = QtWidgets.QAction("Copy", None)
         copy_action.triggered.connect(self.copy_event)
         menu.addAction(copy_action)
         
-        paste_action = QtGui.QAction("Paste", None)
+        paste_action = QtWidgets.QAction("Paste", None)
         if DataCopyDialog.__DATA__:
             paste_action.triggered.connect(self.past_event)
         else:
             paste_action.setEnabled(False)
         menu.addAction(paste_action)
         
-        paste_options_action = QtGui.QAction("Paste Options", None)
+        paste_options_action = QtWidgets.QAction("Paste Options", None)
         if DataCopyDialog.__DATA__:
             paste_options_action.triggered.connect(self.past_option_event)
         else:
@@ -2316,32 +2316,32 @@ class PickerItem(DefaultPolygon):
         menu.addSeparator()
         
         # Duplicate options
-        duplicate_action = QtGui.QAction("Duplicate", None)
+        duplicate_action = QtWidgets.QAction("Duplicate", None)
         duplicate_action.triggered.connect(self.duplicate)
         menu.addAction(duplicate_action)
         
-        mirror_dup_action = QtGui.QAction("Duplicate/mirror", None)
+        mirror_dup_action = QtWidgets.QAction("Duplicate/mirror", None)
         mirror_dup_action.triggered.connect(self.duplicate_and_mirror)
         menu.addAction(mirror_dup_action)
         
         menu.addSeparator()
         
         # Delete
-        remove_action = QtGui.QAction("Remove", None)
+        remove_action = QtWidgets.QAction("Remove", None)
         remove_action.triggered.connect(self.remove)
         menu.addAction(remove_action)
         
         menu.addSeparator()
         
         # Control association
-        ctrls_menu = QtGui.QMenu(menu)
+        ctrls_menu = QtWidgets.QMenu(menu)
         ctrls_menu.setTitle('Ctrls Association')
         
-        select_action = QtGui.QAction("Select", None)
+        select_action = QtWidgets.QAction("Select", None)
         select_action.triggered.connect(self.select_associated_controls)
         ctrls_menu.addAction(select_action)
         
-        replace_action = QtGui.QAction("Replace with selection", None)
+        replace_action = QtWidgets.QAction("Replace with selection", None)
         replace_action.triggered.connect(self.replace_controls_selection)
         ctrls_menu.addAction(replace_action)
         
@@ -2358,10 +2358,10 @@ class PickerItem(DefaultPolygon):
         '''Context menu (right click) out of edition mode (animation)
         '''
         # Init context menu
-        menu = QtGui.QMenu(self.parent())
+        menu = QtWidgets.QMenu(self.parent())
             
 #        # Add reset action
-#        reset_action = QtGui.QAction("Reset", None)
+#        reset_action = QtWidgets.QAction("Reset", None)
 #        reset_action.triggered.connect(self.active_control.reset_to_bind_pose)
 #        menu.addAction(reset_action)
                         
@@ -2415,7 +2415,7 @@ class PickerItem(DefaultPolygon):
         
         # Build menu
         for i in range(len(custom_data)):
-            actions.append(QtGui.QAction(custom_data[i][0], None))
+            actions.append(QtWidgets.QAction(custom_data[i][0], None))
             actions[i].triggered.connect(wrapper(custom_data[i][1]))
         
         return actions
@@ -2498,7 +2498,7 @@ class PickerItem(DefaultPolygon):
         scene = self.scene()
         
         # Move to temp scene
-        tmp_scene = QtGui.QGraphicsScene()
+        tmp_scene = QtWidgets.QGraphicsScene()
         tmp_scene.addItem(self)
         
         # Add to current scene (will be put on top)
@@ -2691,7 +2691,7 @@ class PickerItem(DefaultPolygon):
         
         # Print warning
         if node_missing:
-            QtGui.QMessageBox.warning(self.parent(),
+            QtWidgets.QMessageBox.warning(self.parent(),
                                       "Warning",
                                       "Some target controls do not exist")
         
@@ -2839,7 +2839,7 @@ class PickerItem(DefaultPolygon):
         return data
         
 
-class HandlesPositionWindow(QtGui.QMainWindow):
+class HandlesPositionWindow(QtWidgets.QMainWindow):
     '''Whild window to edit picker item handles local positions
     '''
     __OBJ_NAME__ = 'picker_item_handles_window'
@@ -2851,7 +2851,7 @@ class HandlesPositionWindow(QtGui.QMainWindow):
     def __init__(self,
                  parent=None,
                  picker_item=None):
-        QtGui.QMainWindow.__init__(self, parent=None)
+        QtWidgets.QMainWindow.__init__(self, parent=None)
         
         self.picker_item = picker_item
         
@@ -2867,13 +2867,13 @@ class HandlesPositionWindow(QtGui.QMainWindow):
         self.resize(self.__DEFAULT_WIDTH__, self.__DEFAULT_HEIGHT__)
         
         # Set size policies
-#        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+#        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
 #        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
 #        self.setSizePolicy(sizePolicy)
         
         # Create main widget
-        self.main_widget = QtGui.QWidget(self)
-        self.main_layout = QtGui.QVBoxLayout(self.main_widget)
+        self.main_widget = QtWidgets.QWidget(self)
+        self.main_layout = QtWidgets.QVBoxLayout(self.main_widget)
         
         self.setCentralWidget(self.main_widget)
         
@@ -2885,7 +2885,7 @@ class HandlesPositionWindow(QtGui.QMainWindow):
         self.populate_table()
         
     def add_position_table(self):
-        self.table = QtGui.QTableWidget(self)
+        self.table = QtWidgets.QTableWidget(self)
         
         self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels(['X', 'Y'])
@@ -2938,16 +2938,16 @@ class HandlesPositionWindow(QtGui.QMainWindow):
     
     def closeEvent(self, *args, **kwargs):
         self.display_handles_index(status=False)
-        return QtGui.QMainWindow.closeEvent(self, *args, **kwargs)
+        return QtWidgets.QMainWindow.closeEvent(self, *args, **kwargs)
             
     def show(self, *args, **kwargs):
         '''Override default show function to display related picker handles index
         '''
         self.display_handles_index(status=True)
-        return QtGui.QMainWindow.show(self, *args, **kwargs)
+        return QtWidgets.QMainWindow.show(self, *args, **kwargs)
                 
     
-class ItemOptionsWindow(QtGui.QMainWindow):
+class ItemOptionsWindow(QtWidgets.QMainWindow):
     '''Child window to edit shape options
     '''
     __OBJ_NAME__ = 'ctrl_picker_edit_window'
@@ -2956,7 +2956,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
     #-----------------------------------------------------------------------------------------------
     #    constructor
     def __init__(self, parent=None, picker_item=None):
-        QtGui.QMainWindow.__init__(self, parent=parent)
+        QtWidgets.QMainWindow.__init__(self, parent=parent)
         self.picker_item = picker_item
         
         # Define size
@@ -2979,21 +2979,21 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         self.resize(self.default_width, self.default_height)
         
         # Set size policies
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
         self.setSizePolicy(sizePolicy)
         
         # Create main widget
-        self.main_widget = QtGui.QWidget(self)
-        self.main_layout = QtGui.QHBoxLayout(self.main_widget)
+        self.main_widget = QtWidgets.QWidget(self)
+        self.main_layout = QtWidgets.QHBoxLayout(self.main_widget)
         
-        self.left_layout = QtGui.QVBoxLayout()
+        self.left_layout = QtWidgets.QVBoxLayout()
         self.main_layout.addLayout(self.left_layout)
         
-        self.right_layout = QtGui.QHBoxLayout()
+        self.right_layout = QtWidgets.QHBoxLayout()
         self.main_layout.addLayout(self.right_layout)
         
-        self.control_layout = QtGui.QVBoxLayout()
+        self.control_layout = QtWidgets.QVBoxLayout()
         self.control_layout.setContentsMargins(0,0,0,0)
         self.right_layout.addLayout(self.control_layout)
         
@@ -3029,7 +3029,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
                 self.handles_window.close()
             except:pass 
 
-        QtGui.QMainWindow.closeEvent(self, *args, **kwargs)
+        QtWidgets.QMainWindow.closeEvent(self, *args, **kwargs)
         
     def _update_shape_infos(self):
         self.event_disabled = True
@@ -3073,11 +3073,11 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''Add vertex count option
         '''
         # Create group box
-        group_box = QtGui.QGroupBox()
+        group_box = QtWidgets.QGroupBox()
         group_box.setTitle('Main Properties')
         
         # Add layout
-        layout = QtGui.QVBoxLayout(group_box)
+        layout = QtWidgets.QVBoxLayout(group_box)
         
         # Add edit check box
         self.handles_cb = CallbackCheckBoxWidget(callback=self.handles_cb_event)
@@ -3086,9 +3086,9 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         layout.addWidget(self.handles_cb)
         
         # Add point count spin box
-        spin_layout = QtGui.QHBoxLayout()
+        spin_layout = QtWidgets.QHBoxLayout()
         
-        spin_label = QtGui.QLabel()
+        spin_label = QtWidgets.QLabel()
         spin_label.setText('Vtx Count')
         spin_layout.addWidget(spin_label)
         
@@ -3111,19 +3111,19 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''Add position field for precise control positioning
         '''
         # Create group box
-        group_box = QtGui.QGroupBox()
+        group_box = QtWidgets.QGroupBox()
         group_box.setTitle('Position')
         
         # Add layout
-        layout = QtGui.QVBoxLayout(group_box)
+        layout = QtWidgets.QVBoxLayout(group_box)
         
         # Get bary-center
         position = self.picker_item.pos()
         
         # Add X position spin box
-        spin_layout = QtGui.QHBoxLayout()
+        spin_layout = QtWidgets.QHBoxLayout()
         
-        spin_label = QtGui.QLabel()
+        spin_label = QtWidgets.QLabel()
         spin_label.setText('X')
         spin_layout.addWidget(spin_label)
         
@@ -3135,9 +3135,9 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         layout.addLayout(spin_layout)
         
         # Add Y position spin box
-        spin_layout = QtGui.QHBoxLayout()
+        spin_layout = QtWidgets.QHBoxLayout()
         
-        label = QtGui.QLabel()
+        label = QtWidgets.QLabel()
         label.setText('Y')
         spin_layout.addWidget(label)
         
@@ -3167,11 +3167,11 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''Add color edition field for polygon 
         '''
         # Create group box
-        group_box = QtGui.QGroupBox()
+        group_box = QtWidgets.QGroupBox()
         group_box.setTitle('Color options')
         
         # Add layout
-        layout = QtGui.QHBoxLayout(group_box)
+        layout = QtWidgets.QHBoxLayout(group_box)
         
         # Add color button
         self.color_button = CallbackButton(callback=self.change_color_event)
@@ -3181,7 +3181,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         # Add alpha spin box
         layout.addStretch()
         
-        label = QtGui.QLabel()
+        label = QtWidgets.QLabel()
         label.setText('Alpha')
         layout.addWidget(label)
         
@@ -3197,20 +3197,20 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''Add text option fields 
         '''
         # Create group box
-        group_box = QtGui.QGroupBox()
+        group_box = QtWidgets.QGroupBox()
         group_box.setTitle('Text options')
         
         # Add layout
-        layout = QtGui.QVBoxLayout(group_box)
+        layout = QtWidgets.QVBoxLayout(group_box)
         
         # Add Caption text field
         self.text_field = CallbackLineEdit(self.set_text_event)
         layout.addWidget(self.text_field)
         
         # Add size factor spin box
-        spin_layout = QtGui.QHBoxLayout()
+        spin_layout = QtWidgets.QHBoxLayout()
         
-        spin_label = QtGui.QLabel()
+        spin_label = QtWidgets.QLabel()
         spin_label.setText('Size factor')
         spin_layout.addWidget(spin_label)
         
@@ -3221,7 +3221,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         layout.addLayout(spin_layout)
         
         # Add color layout
-        color_layout = QtGui.QHBoxLayout(group_box)
+        color_layout = QtWidgets.QHBoxLayout(group_box)
         
         # Add color button
         self.text_color_button = CallbackButton(callback=self.change_text_color_event)
@@ -3231,7 +3231,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         # Add alpha spin box
         color_layout.addStretch()
         
-        label = QtGui.QLabel()
+        label = QtWidgets.QLabel()
         label.setText('Alpha')
         color_layout.addWidget(label)
         
@@ -3250,33 +3250,33 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''Add scale group box options
         '''
         # Create group box
-        group_box = QtGui.QGroupBox()
+        group_box = QtWidgets.QGroupBox()
         group_box.setTitle('Scale')
         
         # Add layout
-        layout = QtGui.QVBoxLayout(group_box)
+        layout = QtWidgets.QVBoxLayout(group_box)
         
         # Add edit check box
-        self.worldspace_box = QtGui.QCheckBox()
+        self.worldspace_box = QtWidgets.QCheckBox()
         self.worldspace_box.setText('World space')
         
         layout.addWidget(self.worldspace_box)
         
         # Add alpha spin box
-        spin_layout = QtGui.QHBoxLayout()
+        spin_layout = QtWidgets.QHBoxLayout()
         layout.addLayout(spin_layout)
         
-        label = QtGui.QLabel()
+        label = QtWidgets.QLabel()
         label.setText('Factor')
         spin_layout.addWidget(label)
         
-        self.scale_sb = QtGui.QDoubleSpinBox()
+        self.scale_sb = QtWidgets.QDoubleSpinBox()
         self.scale_sb.setValue(1.1)
         self.scale_sb.setSingleStep(0.05)
         spin_layout.addWidget(self.scale_sb)
         
         # Add scale buttons
-        btn_layout = QtGui.QHBoxLayout()
+        btn_layout = QtWidgets.QHBoxLayout()
         layout.addLayout(btn_layout)
         
         btn = CallbackButton(callback=self.scale_event, x=True)
@@ -3298,11 +3298,11 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''Add custom action mode field group box
         '''
         # Create group box
-        group_box = QtGui.QGroupBox()
+        group_box = QtWidgets.QGroupBox()
         group_box.setTitle('Action Mode')
         
         # Add layout
-        layout = QtGui.QVBoxLayout(group_box)
+        layout = QtWidgets.QVBoxLayout(group_box)
         
         # Add default select mode radio button
         default_rad = CallbackRadioButtonWidget('default',
@@ -3332,11 +3332,11 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''Add target control association group box
         '''
         # Create group box
-        group_box = QtGui.QGroupBox()
+        group_box = QtWidgets.QGroupBox()
         group_box.setTitle('Control Association')
         
         # Add layout
-        layout = QtGui.QVBoxLayout(group_box)
+        layout = QtWidgets.QVBoxLayout(group_box)
         
         # Init list object
         self.control_list = CallbackListWidget(callback=self.edit_ctrl_name_event)
@@ -3344,7 +3344,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         layout.addWidget(self.control_list)
         
         # Add buttons
-        btn_layout1 = QtGui.QHBoxLayout()
+        btn_layout1 = QtWidgets.QHBoxLayout()
         layout.addLayout(btn_layout1)
         
         btn = CallbackButton(callback=self.add_selected_controls_event)
@@ -3370,11 +3370,11 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         '''Add custom menu management groupe box
         '''
         # Create group box
-        group_box = QtGui.QGroupBox()
+        group_box = QtWidgets.QGroupBox()
         group_box.setTitle('Custom Menus')
         
         # Add layout
-        layout = QtGui.QVBoxLayout(group_box)
+        layout = QtWidgets.QVBoxLayout(group_box)
         
         # Init list object
         self.menus_list = CallbackListWidget(callback=self.edit_menu_event)
@@ -3382,7 +3382,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
         layout.addWidget(self.menus_list)
         
         # Add buttons
-        btn_layout1 = QtGui.QHBoxLayout()
+        btn_layout1 = QtWidgets.QHBoxLayout()
         layout.addLayout(btn_layout1)
         
         btn = CallbackButton(callback=self.new_menu_event)
@@ -3601,10 +3601,10 @@ class ItemOptionsWindow(QtGui.QMainWindow):
             return
         
         # Open input window
-        name, ok = QtGui.QInputDialog.getText(self,
+        name, ok = QtWidgets.QInputDialog.getText(self,
                                               unicode("Ctrl name"),
                                               unicode('New name'),
-                                              mode=QtGui.QLineEdit.Normal,
+                                              mode=QtWidgets.QLineEdit.Normal,
                                               text=unicode(item.text()))
         if not (ok and name):
             return
@@ -3665,7 +3665,7 @@ class ItemOptionsWindow(QtGui.QMainWindow):
     def _add_menu_item(self, text=None):
         '''Add a menu item to menu list widget
         '''
-        item = QtGui.QListWidgetItem()
+        item = QtWidgets.QListWidgetItem()
         item.index = self.menus_list.count()
         if text:
             item.setText(text)
@@ -3758,9 +3758,9 @@ class SaveOverlayWidget(OverlayWidget):
         OverlayWidget.setup(self)
         
         # Add options group box
-        group_box = QtGui.QGroupBox()
+        group_box = QtWidgets.QGroupBox()
         group_box.setTitle('Save options')
-        self.option_layout = QtGui.QVBoxLayout(group_box)
+        self.option_layout = QtWidgets.QVBoxLayout(group_box)
         self.layout.addWidget(group_box)
         
         # Add options
@@ -3771,7 +3771,7 @@ class SaveOverlayWidget(OverlayWidget):
         self.add_confirmation_buttons()
         
         # Add vertical spacer
-        spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(spacer)
         
         self.data_node = None
@@ -3779,7 +3779,7 @@ class SaveOverlayWidget(OverlayWidget):
     def add_node_save_options(self):
         '''Save data to node option
         '''
-        self.node_option_cb = QtGui.QCheckBox()
+        self.node_option_cb = QtWidgets.QCheckBox()
         self.node_option_cb.setText('Save data to node')
         
         self.option_layout.addWidget(self.node_option_cb)
@@ -3787,14 +3787,14 @@ class SaveOverlayWidget(OverlayWidget):
     def add_file_save_options(self):
         '''Add save to file options
         '''
-        self.file_option_cb = QtGui.QCheckBox()
+        self.file_option_cb = QtWidgets.QCheckBox()
         self.file_option_cb.setText('Save data to file')
         
         self.option_layout.addWidget(self.file_option_cb)
         
-        file_layout = QtGui.QHBoxLayout()
+        file_layout = QtWidgets.QHBoxLayout()
         
-        self.file_path_le = QtGui.QLineEdit()
+        self.file_path_le = QtWidgets.QLineEdit()
         file_layout.addWidget(self.file_path_le)
         
         file_btn = CallbackButton(callback=self.select_file_event)
@@ -3806,9 +3806,9 @@ class SaveOverlayWidget(OverlayWidget):
     def add_confirmation_buttons(self):
         '''Add save confirmation buttons to overlay
         '''
-        btn_layout = QtGui.QHBoxLayout()
+        btn_layout = QtWidgets.QHBoxLayout()
 
-        spacer = QtGui.QSpacerItem(0,0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        spacer = QtWidgets.QSpacerItem(0,0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         btn_layout.addItem(spacer)
         
         close_btn = CallbackButton(callback=self.cancel_event)
@@ -3819,7 +3819,7 @@ class SaveOverlayWidget(OverlayWidget):
         save_btn.setText('Save')
         btn_layout.addWidget(save_btn)
         
-        spacer = QtGui.QSpacerItem(0,0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        spacer = QtWidgets.QSpacerItem(0,0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         btn_layout.addItem(spacer)
         
         self.layout.addLayout(btn_layout)
@@ -3855,7 +3855,7 @@ class SaveOverlayWidget(OverlayWidget):
     def select_file_dialog(self):
         '''Get file dialog window starting in default folder
         '''
-        file_path = QtGui.QFileDialog.getSaveFileName(self,
+        file_path = QtWidgets.QFileDialog.getSaveFileName(self,
                                                       'Choose file',
                                                       get_module_path(),
                                                       'Picker Datas (*.pkr)')
@@ -3909,14 +3909,14 @@ class AboutOverlayWidget(OverlayWidget):
         OverlayWidget.setup(self)
 
         # Add label
-        label = QtGui.QLabel()
+        label = QtWidgets.QLabel()
         label.setText(self.get_text())
         self.layout.addWidget(label)
         
         # Add Close button
-        btn_layout = QtGui.QHBoxLayout()
+        btn_layout = QtWidgets.QHBoxLayout()
 
-        spacer = QtGui.QSpacerItem(0,0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        spacer = QtWidgets.QSpacerItem(0,0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         btn_layout.addItem(spacer)
         
         close_btn = CallbackButton(callback=self.hide)
@@ -3924,13 +3924,13 @@ class AboutOverlayWidget(OverlayWidget):
         close_btn.setToolTip('Hide about informations')
         btn_layout.addWidget(close_btn)
         
-        spacer = QtGui.QSpacerItem(0,0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        spacer = QtWidgets.QSpacerItem(0,0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         btn_layout.addItem(spacer)
         
         self.layout.addLayout(btn_layout)
         
         # Add vertical spacer
-        spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(spacer)
         
     def get_text(self):
@@ -3948,15 +3948,17 @@ class AboutOverlayWidget(OverlayWidget):
         return text
     
             
-class MainDockWindow(QtGui.QDockWidget):
+class MainDockWindow(QtWidgets.QDockWidget):
     __OBJ_NAME__ = 'ctrl_picker_window'
     __TITLE__ = 'Anim Picker'
     
     def __init__(self,
                  parent=qt_handlers.get_maya_window(),
                  edit=False ):
+        self.ready = False
+
         '''init pyqt4 GUI'''
-        QtGui.QDockWidget.__init__(self, parent)
+        QtWidgets.QDockWidget.__init__(self, parent)
         
         self.parent =   parent
                 
@@ -3984,7 +3986,7 @@ class MainDockWindow(QtGui.QDockWidget):
         self.resize(self.default_width, self.default_height)
         
         self.setAllowedAreas(QtCore.Qt.LeftDockWidgetArea|QtCore.Qt.RightDockWidgetArea)
-        self.setFeatures(QtGui.QDockWidget.DockWidgetFloatable|QtGui.QDockWidget.DockWidgetMovable|QtGui.QDockWidget.DockWidgetClosable)
+        self.setFeatures(QtWidgets.QDockWidget.DockWidgetFloatable|QtWidgets.QDockWidget.DockWidgetMovable|QtWidgets.QDockWidget.DockWidgetClosable)
         
         # Add to maya window for proper behavior
         maya_window = qt_handlers.get_maya_window()
@@ -3992,8 +3994,8 @@ class MainDockWindow(QtGui.QDockWidget):
         self.setFloating(True)
         
         # Add main widget and vertical layout
-        self.main_widget = QtGui.QWidget(self)
-        self.main_vertical_layout = QtGui.QVBoxLayout(self.main_widget)
+        self.main_widget = QtWidgets.QWidget(self)
+        self.main_vertical_layout = QtWidgets.QVBoxLayout(self.main_widget)
         
         # Add window fields
         self.add_character_selector()
@@ -4003,6 +4005,9 @@ class MainDockWindow(QtGui.QDockWidget):
         # Add main widget to window
         self.setWidget(self.main_widget)
         
+        # Creating is done (workaround for signals being fired off before everything is created)
+        self.ready = True
+
 #        # Add docking event signal
 #        self.connect(self,
 #                     QtCore.SIGNAL('topLevelChanged(bool)'),
@@ -4017,18 +4022,18 @@ class MainDockWindow(QtGui.QDockWidget):
         '''Add Character comboBox selector
         '''
         # Create layout
-        layout = QtGui.QHBoxLayout()
+        layout = QtWidgets.QHBoxLayout()
         self.main_vertical_layout.addLayout(layout)
         
         # Create group box
-        box = QtGui.QGroupBox()
+        box = QtWidgets.QGroupBox()
         box.setTitle('Character Selector')
         box.setFixedHeight(80)
         
         layout.addWidget(box)
         
         # Add layout
-        box_layout = QtGui.QVBoxLayout(box)
+        box_layout = QtWidgets.QVBoxLayout(box)
         
         # Add combo box
         self.char_selector_cb = CallbackComboBox(callback=self.selector_change_event)
@@ -4038,11 +4043,11 @@ class MainDockWindow(QtGui.QDockWidget):
         self.char_selector_cb.nodes = list()
         
         # Add option buttons
-        btns_layout = QtGui.QHBoxLayout()
+        btns_layout = QtWidgets.QHBoxLayout()
         box_layout.addLayout(btns_layout)
         
         # Add horizont spacer
-        spacer = QtGui.QSpacerItem(10,0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        spacer = QtWidgets.QSpacerItem(10,0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         btns_layout.addItem(spacer)
         
         # About btn
@@ -4132,13 +4137,17 @@ class MainDockWindow(QtGui.QDockWidget):
             except:pass
         
         # Default close    
-        QtGui.QDockWidget.closeEvent(self, *args, **kwargs)
+        QtWidgets.QDockWidget.closeEvent(self, *args, **kwargs)
     
     def showEvent(self,  *args, **kwargs):
         '''Default showEvent overload
         '''
+        # Prevent firing this event before the window is set up
+        if not self.ready: 
+            return
+
         # Default close    
-        QtGui.QDockWidget.showEvent(self, *args, **kwargs)
+        QtWidgets.QDockWidget.showEvent(self, *args, **kwargs)
         
         # Force char load
         self.refresh()
@@ -4149,6 +4158,10 @@ class MainDockWindow(QtGui.QDockWidget):
     def resizeEvent(self, event):
         '''Resize about overlay on resize event
         '''
+        # Prevent firing this event before the window is set up
+        if not self.ready: 
+            return
+
         size = self.main_widget.size()
         pos = self.main_widget.pos()
         
@@ -4158,7 +4171,7 @@ class MainDockWindow(QtGui.QDockWidget):
         self.save_widget.resize(size)
         self.save_widget.move(pos)
         
-        return QtGui.QDockWidget.resizeEvent(self, event)
+        return QtWidgets.QDockWidget.resizeEvent(self, event)
     
     def show_about_infos(self):
         '''Open animation picker about and help infos
@@ -4271,10 +4284,10 @@ class MainDockWindow(QtGui.QDockWidget):
         (edit mode only)
         '''
         # Open input window
-        name, ok = QtGui.QInputDialog.getText(self,
+        name, ok = QtWidgets.QInputDialog.getText(self,
                                               self.tr("New character"),
                                               self.tr('Node name'),
-                                              QtGui.QLineEdit.Normal,
+                                              QtWidgets.QLineEdit.Normal,
                                               self.tr('PICKER_DATA') )
         if not (ok and name):
             return
@@ -4307,11 +4320,11 @@ class MainDockWindow(QtGui.QDockWidget):
             return True
         
         # Open question window
-        answer = QtGui.QMessageBox.question(self,
+        answer = QtWidgets.QMessageBox.question(self,
                                             'Changes detected',
                                             'Any changes will be lost, proceed any way ?',
-                                     buttons = QtGui.QMessageBox.No | QtGui.QMessageBox.Yes)
-        return answer == QtGui.QMessageBox.Yes
+                                     buttons = QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Yes)
+        return answer == QtWidgets.QMessageBox.Yes
     
     def get_current_namespace(self):
         return self.get_current_data_node().get_namespace()
@@ -4366,14 +4379,14 @@ class MainDockWindow(QtGui.QDockWidget):
         
         # Block save in anim mode
         if not __EDIT_MODE__.get():
-            QtGui.QMessageBox.warning(self,
+            QtWidgets.QMessageBox.warning(self,
                                       "Warning",
                                       "Save is not permited in anim mode")
             return
         
         # Block save on referenced nodes
         if data_node.is_referenced():
-            QtGui.QMessageBox.warning(self,
+            QtWidgets.QMessageBox.warning(self,
                                       "Warning",
                                       "Save is not permited on referenced nodes")
             return
@@ -4451,15 +4464,17 @@ def load(edit=False, multi=False):
     '''
     # Return existing window if not multi option
     # Force multi in edit mode to prevent locked window issues
+    """
     if not (edit or multi):
         dock_pt = OpenMayaUI.MQtUtil.findControl(MainDockWindow.__OBJ_NAME__)
         if dock_pt:
             # Get dock qt instance
             dock_widget = qt_handlers.wrap_instance(long(dock_pt), QtCore.QObject)
             dock_widget.show()
-            dock_widget.raise_()
+            #dock_widget.raise_()
     
             return dock_widget
+    """
     
     # Init UI
     dock_widget = MainDockWindow(parent=qt_handlers.get_maya_window(),
