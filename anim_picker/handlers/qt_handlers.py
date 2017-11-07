@@ -6,13 +6,10 @@ from maya import OpenMayaUI
 
 # Main Qt support
 try:
-    from PyQt4 import QtCore, QtGui, QtOpenGL
+    from anim_picker.Qt import QtCore, QtGui, QtOpenGL, QtWidgets
 except:
-    try:
-        from PySide import QtCore, QtGui, QtOpenGL
-    except:
-        raise Exception, 'Failed to import PyQt4 or Pyside'
-    
+    raise Exception, 'Failed to import Qt.py'
+
 try:
     import sip
 except:
@@ -22,7 +19,10 @@ except:
         try:
             from PySide import shiboken
         except:
-            raise Exception, 'Failed to import sip or shiboken'
+            try:
+                import shiboken2 as shiboken
+            except:
+                raise Exception, 'Failed to import sip or shiboken'
         
     
 # Instance handling
@@ -48,7 +48,7 @@ def get_maya_window():
     '''
     try:
         ptr = OpenMayaUI.MQtUtil.mainWindow()
-        return wrap_instance(long(ptr), QtGui.QMainWindow)
+        return wrap_instance(long(ptr), QtWidgets.QMainWindow)
     except:
         #    fails at import on maya launch since ui isn't up yet
         return None
