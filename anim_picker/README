@@ -1,9 +1,9 @@
-# Copyright (c) 2012-2013 Guillaume Barlier
-# This file is part of "anim_picker" and covered by the LGPLv3 or later,
-# read COPYING and COPYING.LESSER for details.
+# Copyright (c) 2018 Guillaume Barlier
+# This file is part of "anim_picker" and covered by MIT,
+# read LICENSE.md and COPYING.md for details.
 
 You can check for new version on my website:
-http://guillaume.barlier.com/
+https://github.com/gbarlier
 
 ## DESCRIPTIONS
 The Animation picker tool called "anim_picker" for short is a tool for Maya.
@@ -11,10 +11,10 @@ This tool allows you to create a graphical interface for quick animation control
 
 ## DEPENDENCIES
 This tools requires PyQt4 or PySide to work and Maya of course
-It was coded with PyQt4 v4.7.1 and tested with PySide v 1.1.2 
+It was coded with PyQt4 v4.7.1 and tested with PySide v 1.1.2
 
 ## HOW TO USE (For More detailed instruction visit my website)
-# Create a new picker 
+# Create a new picker
 To create a new picker for a animation character start by importing the picker package and loading the interface in edit mode:
 	import anim_picker
 	anim_picker.load(edit=True)

@@ -1,6 +1,6 @@
-# Copyright (c) 2012-2013 Guillaume Barlier
-# This file is part of "anim_picker" and covered by the LGPLv3 or later,
-# read COPYING and COPYING.LESSER for details.
+# Copyright (c) 2018 Guillaume Barlier
+# This file is part of "anim_picker" and covered by MIT,
+# read LICENSE.md and COPYING.md for details.
 
 import sys
 

@@ -1,6 +1,6 @@
-# Copyright (c) 2012-2013 Guillaume Barlier
-# This file is part of "anim_picker" and covered by the LGPLv3 or later,
-# read COPYING and COPYING.LESSER for details.
+# Copyright (c) 2018 Guillaume Barlier
+# This file is part of "anim_picker" and covered by MIT,
+# read LICENSE.md and COPYING.md for details.
 
 from maya import OpenMayaUI
 
@@ -23,8 +23,8 @@ except:
                 import shiboken2 as shiboken
             except:
                 raise Exception, 'Failed to import sip or shiboken'
-        
-    
+
+
 # Instance handling
 def wrap_instance(ptr, base):
     '''Return QtGui object instance based on pointer address
@@ -33,7 +33,7 @@ def wrap_instance(ptr, base):
         return sip.wrapinstance(long(ptr), QtCore.QObject)
     elif globals().has_key('shiboken'):
         return shiboken.wrapInstance(long(ptr), base)
-    
+
 def unwrap_instance(qt_object):
     '''Return pointer address for qt class instance
     '''
@@ -41,8 +41,8 @@ def unwrap_instance(qt_object):
         return long(sip.unwrapinstance(qt_object))
     elif globals().has_key('shiboken'):
         return long(shiboken.getCppPointer(qt_object)[0])
-    
-    
+
+
 def get_maya_window():
     '''Get the maya main window as a QMainWindow instance
     '''
