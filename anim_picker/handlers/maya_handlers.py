@@ -6,20 +6,21 @@ import sys
 from maya import cmds
 from maya import OpenMaya
 
+
 def get_flattened_nodes(nodes):
     '''Will 'flatten' sets to get all nodes
     '''
     # Init results
-    results = list()
+    results = []
 
     # Parse nodes
-    for node in nodes or list():
+    for node in nodes or []:
         # Skip if not doesn't exists
         if not cmds.objExists(node):
             continue
 
         # Object set type
-        if cmds.nodeType(node) == 'objectSet':
+        if cmds.nodeType(node) == "objectSet":
             content = cmds.sets(node, q=True, no=True)
             set_nodes = get_flattened_nodes(content)
 
@@ -35,23 +36,24 @@ def get_flattened_nodes(nodes):
 
     return results
 
+
 def select_nodes(nodes, namespace=None, modifier=None):
     '''Select maya node handler with specific modifier behavior
     '''
     # Parse nodes
-    filtered_nodes = list()
+    filtered_nodes = []
     for node in nodes:
         # Add namespace to node name
         if namespace:
-            node = '%s:%s'%(namespace, node)
+            node = "{}:{}".format(namespace, node)
 
         # skip invalid nodes
         if not cmds.objExists(node):
-            sys.stderr.write(' node "%s" not found, skipping\n'%node)
+            sys.stderr.write("node '{}' not found, skipping\n".format(node))
             continue
 
         # Set case
-        if cmds.nodeType(node) == 'objectSet':
+        if cmds.nodeType(node) == "objectSet":
             content = get_flattened_nodes([node])
             filtered_nodes.extend(content)
             continue
@@ -70,39 +72,45 @@ def select_nodes(nodes, namespace=None, modifier=None):
         return cmds.select(filtered_nodes)
 
     # Control case (toggle)
-    if modifier == 'control':
+    if modifier == "control":
         return cmds.select(filtered_nodes, tgl=True)
 
     # Alt case (remove)
-    elif modifier == 'alt':
+    elif modifier == "alt":
         return cmds.select(filtered_nodes, d=True)
 
     # Shift case (add) and none
     else:
         return cmds.select(filtered_nodes, add=True)
 
-def reset_node_attributes(node, attr='rigBindPose'):
+
+def reset_node_attributes(node, attr="rigBindPose"):
     '''Will reset attribute to stored values
     '''
     # Sanity check
     if not cmds.objExists(node):
-        sys.stderr.write(' reset_node_attributes -> node "%s" not found, skipping\n'%node)
+        msg = "reset_node_attributes -> '{}' not found, skipping".format(node)
+        sys.stderr.write(msg)
         return
 
     # Check for attribute
     if not cmds.attributeQuery(attr, n=node, ex=True):
-        sys.stderr.write(' reset_node_attributes -> node "%s" has no attribute named "%s", skipping\n'%(node, attr))
+        msg = "reset_node_attributes -> '{}' has no attribute named \
+        '{}', skipping".format(node, attr)
+        sys.stderr.write(msg)
         return
 
     # Get attributes dictionary
-    str_values =cmds.getAttr("%s.%s"%(node, attr))
+    str_values = cmds.getAttr("{}.{}".format(node, attr))
     if not str_values:
         return
     attr_values = eval(str_values)
 
     # Check type
-    if not type(attr_values) == dict:
-        sys.stderr.write(' reset_node_attributes -> stored data for node "%s" are not a dictionary\n'%node)
+    if not type(attr_values) == {}:
+        msg = "reset_node_attributes -> stored data for node '{}' are not a \
+        dictionary".format(node)
+        sys.stderr.write(msg)
         return
 
     # Apply values
@@ -113,9 +121,11 @@ def reset_node_attributes(node, attr='rigBindPose'):
 
         # Apply stored value
         try:
-            cmds.setAttr('%s.%s'%(node, attr_key), attr_values[attr_key])
-        except:
-            sys.stderr.write(' reset_node_attributes -> failed to set attribute "%s.%s" to %s\n'%(node, attr, unicode(attr_values[attr_key])))
+            cmds.setAttr("{}.{}".format(node, attr_key), attr_values[attr_key])
+        except Exception:
+            msg = "reset_node_attributes -> failed to set attribute '{}.{}' \
+            to {}".format(node, attr, unicode(attr_values[attr_key]))
+            sys.stderr.write(msg)
 
     return True
 
@@ -145,7 +155,7 @@ class SelectionCheck():
 
         # Get node mobject
         mobject = OpenMaya.MObject()
-        nodes.getDependNode( 0, mobject )
+        nodes.getDependNode(0, mobject)
         return mobject
 
     @classmethod
@@ -172,4 +182,3 @@ class SelectionCheck():
 
         # Check if node is in selection lest
         return self.sel.hasItem(node)
-

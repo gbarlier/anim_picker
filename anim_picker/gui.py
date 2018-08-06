@@ -10,54 +10,58 @@ import re
 from math import sin, cos, pi
 
 from maya import cmds
-from maya import OpenMaya
 from maya import OpenMayaUI
 
 import anim_picker
-import node
+import picker_node
 from handlers import maya_handlers
 from handlers import python_handlers
 
 from handlers import qt_handlers
-from handlers.qt_handlers import QtCore, QtWidgets, QtOpenGL, QtWidgets
+from handlers.qt_handlers import QtCore, QtWidgets, QtOpenGL, QtGui
+# from Qt import QtCore, QtWidgets, QtOpenGL, QtGui
 
 from handlers import __EDIT_MODE__
 from handlers import __SELECTION__
 
-__USE_OPENGL__ = False # seems to conflicts with maya viewports...
+# seems to conflicts with maya viewports...
+__USE_OPENGL__ = False
 
-#===============================================================================
+
+# =============================================================================
 # Dependencies ---
-#===============================================================================
+# =============================================================================
 def get_module_path():
     '''Return the folder path for this module
     '''
     return os.path.dirname(os.path.abspath(__file__))
 
+
 def get_images_folder_path():
     '''Return path for package images folder
     '''
     # Get the path to this file
-    return os.path.join(get_module_path(), 'images')
+    return os.path.join(get_module_path(), "images")
 
 
-#===============================================================================
+# =============================================================================
 # Custom Widgets ---
-#===============================================================================
+# =============================================================================
 class CallbackButton(QtWidgets.QPushButton):
     '''Dynamic callback button
     '''
+
     def __init__(self, callback=None, *args, **kwargs):
         QtWidgets.QPushButton.__init__(self)
-        self.callback   =   callback
-        self.args       =   args
-        self.kwargs     =   kwargs
+        self.callback = callback
+        self.args = args
+        self.kwargs = kwargs
 
         # Connect event
         self.clicked.connect(self.click_event)
 
         # Set tooltip
-        if hasattr(self.callback, '__doc__') and self.callback.__doc__:
+        if hasattr(self.callback, "__doc__") and self.callback.__doc__:
             self.setToolTip(self.callback.__doc__)
 
     def click_event(self):
@@ -69,6 +73,7 @@ class CallbackButton(QtWidgets.QPushButton):
 class CallbackComboBox(QtWidgets.QComboBox):
     '''Dynamic combo box object
     '''
+
     def __init__(self, callback=None, status_tip=None, *args, **kwargs):
         QtWidgets.QComboBox.__init__(self)
         self.callback = callback
@@ -86,12 +91,7 @@ class CallbackComboBox(QtWidgets.QComboBox):
 
 
 class CallBackSpinBox(QtWidgets.QSpinBox):
-    def __init__(self,
-                 callback,
-                 value=0,
-                 min=0,
-                 max=9999,
-                 *args, **kwargs):
+    def __init__(self, callback, value=0, min=0, max=9999, *args, **kwargs):
         QtWidgets.QSpinBox.__init__(self)
         self.callback = callback
         self.args = args
@@ -111,13 +111,7 @@ class CallBackSpinBox(QtWidgets.QSpinBox):
 
 
 class CallBackDoubleSpinBox(QtWidgets.QDoubleSpinBox):
-    def __init__(self,
-                 callback,
-                 value=0,
-                 min=0,
-                 max=9999,
-                 *args,
-                 **kwargs):
+    def __init__(self, callback, value=0, min=0, max=9999, *args, **kwargs):
         QtWidgets.QDoubleSpinBox.__init__(self)
         self.callback = callback
         self.args = args
@@ -135,10 +129,11 @@ class CallBackDoubleSpinBox(QtWidgets.QDoubleSpinBox):
             return
         self.callback(value=value, *self.args, **self.kwargs)
 
+
 class CallbackLineEdit(QtWidgets.QLineEdit):
     def __init__(self, callback, text=None, *args, **kwargs):
         QtWidgets.QLineEdit.__init__(self)
-        self.callback   =   callback
+        self.callback = callback
         self.args = args
         self.kwargs = kwargs
 
@@ -158,11 +153,12 @@ class CallbackLineEdit(QtWidgets.QLineEdit):
 class CallbackListWidget(QtWidgets.QListWidget):
     '''Dynamic List Widget object
     '''
+
     def __init__(self, callback=None, *args, **kwargs):
         QtWidgets.QListWidget.__init__(self)
-        self.callback   =   callback
-        self.args       =   args
-        self.kwargs     =   kwargs
+        self.callback = callback
+        self.args = args
+        self.kwargs = kwargs
 
         self.itemDoubleClicked.connect(self.double_click_event)
 
@@ -178,6 +174,7 @@ class CallbackListWidget(QtWidgets.QListWidget):
 class CallbackCheckBoxWidget(QtWidgets.QCheckBox):
     '''Dynamic CheckBox Widget object
     '''
+
     def __init__(self,
                  callback=None,
                  value=False,
@@ -192,20 +189,21 @@ class CallbackCheckBoxWidget(QtWidgets.QCheckBox):
         # Set init state
         if value:
             self.setCheckState(QtCore.Qt.Checked)
-        self.setText(label or '')
+        self.setText(label or "")
 
         self.toggled.connect(self.toggled_event)
 
     def toggled_event(self, value):
         if not self.callback:
             return
-        self.kwargs['value'] = value
+        self.kwargs["value"] = value
         self.callback(*self.args, **self.kwargs)
 
 
 class CallbackRadioButtonWidget(QtWidgets.QRadioButton):
     '''Dynamic callback radioButton
     '''
+
     def __init__(self, name_value, callback, checked=False):
         QtWidgets.QRadioButton.__init__(self)
         self.name_value = name_value
@@ -224,6 +222,7 @@ class CtrlListWidgetItem(QtWidgets.QListWidgetItem):
     List widget item for influence list
     will handle checks, color feedbacks and edits
     '''
+
     def __init__(self, index=0, text=None):
         QtWidgets.QListWidgetItem.__init__(self)
 
@@ -263,11 +262,13 @@ class CtrlListWidgetItem(QtWidgets.QListWidgetItem):
 
         # Exists case
         if self.node_exists():
-            color.setRgb(152, 251, 152) # pale green
+            # pale green
+            color.setRgb(152, 251, 152)
 
         # Does not exists case
         else:
-            color.setRgb(255, 165, 0) # orange
+            # orange
+            color.setRgb(255, 165, 0)
 
         brush = self.foreground()
         brush.setColor(color)
@@ -277,6 +278,7 @@ class CtrlListWidgetItem(QtWidgets.QListWidgetItem):
 class ContextMenuTabWidget(QtWidgets.QTabWidget):
     '''Custom tab widget with specific context menu support
     '''
+
     def __init__(self,
                  parent,
                  main_window=None,
@@ -327,10 +329,10 @@ class ContextMenuTabWidget(QtWidgets.QTabWidget):
 
         # Open input window
         name, ok = QtWidgets.QInputDialog.getText(self,
-                                              self.tr("Tab name"),
-                                              self.tr('New name'),
-                                              QtWidgets.QLineEdit.Normal,
-                                              self.tr(self.tabText(index)) )
+                                                  self.tr("Tab name"),
+                                                  self.tr('New name'),
+                                                  QtWidgets.QLineEdit.Normal,
+                                                  self.tr(self.tabText(index)))
         if not (ok and name):
             return
 
@@ -342,10 +344,10 @@ class ContextMenuTabWidget(QtWidgets.QTabWidget):
         '''
         # Open input window
         name, ok = QtWidgets.QInputDialog.getText(self,
-                                              self.tr("Create new tab"),
-                                              self.tr('Tab name'),
-                                              QtWidgets.QLineEdit.Normal,
-                                              self.tr('') )
+                                                  self.tr("Create new tab"),
+                                                  self.tr("Tab name"),
+                                                  QtWidgets.QLineEdit.Normal,
+                                                  self.tr(""))
         if not (ok and name):
             return
 
@@ -353,7 +355,7 @@ class ContextMenuTabWidget(QtWidgets.QTabWidget):
         self.addTab(GraphicViewWidget(main_window=self.main_window), name)
 
         # Set new tab active
-        self.setCurrentIndex(self.count()-1)
+        self.setCurrentIndex(self.count() - 1)
 
     def remove_tab_event(self):
         '''Will remove tab from widget
@@ -362,10 +364,12 @@ class ContextMenuTabWidget(QtWidgets.QTabWidget):
         index = self.currentIndex()
 
         # Open confirmation
-        reply = QtWidgets.QMessageBox.question(self, 'Delete',
-                                           "Delete tab '%s'?"%self.tabText(index),
-                                           QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                                           QtWidgets.QMessageBox.No)
+        reply = QtWidgets.QMessageBox.question(self,
+                                               "Delete",
+                                               "Delete tab '{}'?".format(
+                                                   self.tabText(index)),
+                                               QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                                               QtWidgets.QMessageBox.No)
         if reply == QtWidgets.QMessageBox.No:
             return
 
@@ -389,7 +393,7 @@ class ContextMenuTabWidget(QtWidgets.QTabWidget):
     def get_all_picker_items(self):
         '''Returns all picker items for all tabs
         '''
-        items = list()
+        items = []
         for i in range(self.count()):
             items.extend(self.widget(i).get_picker_items())
         return items
@@ -397,11 +401,11 @@ class ContextMenuTabWidget(QtWidgets.QTabWidget):
     def get_data(self):
         '''Will return all tabs data
         '''
-        data = list()
+        data = []
         for i in range(self.count()):
             name = unicode(self.tabText(i))
             tab_data = self.widget(i).get_data()
-            data.append({'name':name, 'data':tab_data})
+            data.append({"name": name, "data": tab_data})
         return data
 
     def set_data(self, data):
@@ -421,15 +425,16 @@ class ContextMenuTabWidget(QtWidgets.QTabWidget):
 class BackgroundWidget(QtWidgets.QLabel):
     '''QLabel widget to support background options for tabs.
     '''
+
     def __init__(self,
                  parent=None):
-        QtWidgets.QLabel.__init__(self, parent )
+        QtWidgets.QLabel.__init__(self, parent)
 
         self.setBackgroundRole(QtGui.QPalette.Base)
         self.background = None
 
     def _assert_path(self, path):
-        assert os.path.exists(path), 'Could not find file%s'%path
+        assert os.path.exists(path), "Could not find file {}".format(path)
 
     def resizeEvent(self, event):
         QtWidgets.QLabel.resizeEvent(self, event)
@@ -444,10 +449,12 @@ class BackgroundWidget(QtWidgets.QLabel):
             self.setStyleSheet("")
             return
 
+        bg = self.background
         if __EDIT_MODE__.get():
-            self.setStyleSheet("QLabel {background-image: url('%s'); background-repeat: no repeat;}"%self.background)
+            edit_css = "QLabel {background-image: url('{}'); background-repeat: no repeat;}".format(bg)
+            self.setStyleSheet(edit_css)
         else:
-            self.setStyleSheet("QLabel {border-image: url('%s');}"%self.background)
+            self.setStyleSheet("QLabel {border-image: url('{}');}".format(bg))
 
     def set_background(self, path=None):
         '''Set character snapshot picture
@@ -464,9 +471,10 @@ class BackgroundWidget(QtWidgets.QLabel):
     def file_dialog(self):
         '''Get file dialog window starting in default folder
         '''
+        imgs_dir = get_images_folder_path()
         file_path = QtWidgets.QFileDialog.getOpenFileName(self,
-                                                      'Choose picture',
-                                                      get_images_folder_path())
+                                                          'Choose picture',
+                                                          imgs_dir)
         # Filter return result (based on qt version)
         if isinstance(file_path, tuple):
             file_path = file_path[0]
@@ -480,23 +488,24 @@ class BackgroundWidget(QtWidgets.QLabel):
 class SnapshotWidget(BackgroundWidget):
     '''Top right character "snapshot" widget, to display character picture
     '''
+
     def __init__(self,
                  parent=None):
-        BackgroundWidget.__init__(self, parent )
+        BackgroundWidget.__init__(self, parent)
 
         self.setFixedWidth(80)
         self.setFixedHeight(80)
 
         self.set_background()
 
-        self.setToolTip('Click here to Open About/Help window')
+        self.setToolTip("Click here to Open About/Help window")
 
     def _get_default_snapshot(self, name='undefined'):
         '''Return default snapshot
         '''
         # Define image path
         folder_path = get_images_folder_path()
-        image_path = os.path.join(folder_path, '%s.png'%name)
+        image_path = os.path.join(folder_path, "{}.png".format(name))
 
         # Assert path
         self._assert_path(image_path)
@@ -569,13 +578,14 @@ class OverlayWidget(QtWidgets.QWidget):
     '''
     Transparent overlay type widget
 
-    Don't forget to add resize to parent resetEvent to resize this event window as:
+    add resize to parent resetEvent to resize this event window as:
     #def resizeEvent(self, event):
     #    self.overlay.resize(self.widget().size())
     #    self.overlay.move(self.widget().pos())
     #    event.accept()
 
     '''
+
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
 
@@ -601,37 +611,10 @@ class OverlayWidget(QtWidgets.QWidget):
         self.hide()
 
 
-#===============================================================================
-# New code ---
-#===============================================================================
-
-##http://www.rqna.net/qna/ihviws-pyqt-why-qglwidget-influenced-by-maya-event.html
-#from OpenGL import WGL
-#class OpenGlWidget(QtOpenGL.QGLWidget):
-#    '''
-#    Overload of QGLWidget to counter conflict with maya viewports
-#    '''
-#    def __init__(self, *args, **kwargs):
-#        QtOpenGL.QGLWidget.__init__(self, *args, **kwargs)
-#
-#        self._HDC = None
-#        self._HRC = None
-#
-#    def makeCurrent(self):
-#        print 'make current'
-#        self._HDC = WGL.wglGetCurrentDC()
-#        self._HRC = WGL.wglGetCurrentContext()
-#        QtOpenGL.QGLWidget.makeCurrent(self)
-#
-#    def doneCurrent(self):
-#        print 'done current'
-#        QtOpenGL.QGLWidget.doneCurrent(self)
-#        WGL.wglMakeCurrent(self._HDC, self._HRC)
-
-
 class State():
     '''State object, for easy state handling
     '''
+
     def __init__(self, state, name=False):
         self.state = state
         self.name = name
@@ -651,9 +634,9 @@ class State():
 class DataCopyDialog(QtWidgets.QDialog):
     '''PickerItem data copying dialog handler
     '''
-    __DATA__ = dict()
+    __DATA__ = {}
 
-    __STATES__ = list()
+    __STATES__ = []
     __DO_POS__ = State(False, 'position')
     __STATES__.append(__DO_POS__)
     __DO_COLOR__ = State(True, 'color')
@@ -691,10 +674,11 @@ class DataCopyDialog(QtWidgets.QDialog):
 
         # Add data field options
         for state in self.__STATES__:
+            label_name = state.name.capitalize().replace('_', ' ')
             cb = CallbackCheckBoxWidget(callback=self.check_box_event,
-                                             value=state.get(),
-                                             label=state.name.capitalize().replace('_', ' '),
-                                             state_obj=state)
+                                        value=state.get(),
+                                        label=label_name,
+                                        state_obj=state)
             self.main_layout.addWidget(cb)
 
         # Add buttons
@@ -702,11 +686,11 @@ class DataCopyDialog(QtWidgets.QDialog):
         self.main_layout.addLayout(btn_layout)
 
         ok_btn = CallbackButton(callback=self.accept_event)
-        ok_btn.setText('Ok')
+        ok_btn.setText("Ok")
         btn_layout.addWidget(ok_btn)
 
         cancel_btn = CallbackButton(callback=self.cancel_event)
-        cancel_btn.setText('Cancel')
+        cancel_btn.setText("Cancel")
         btn_layout.addWidget(cancel_btn)
 
     def check_box_event(self, value=False, state_obj=None):
@@ -745,20 +729,21 @@ class DataCopyDialog(QtWidgets.QDialog):
     @staticmethod
     def set(item=None):
         # Sanity check
-        assert isinstance(item, PickerItem), 'Item is not an PickerItem instance'
-        assert DataCopyDialog.__DATA__, 'No stored data to paste'
+        msg = "Item is not an PickerItem instance"
+        assert isinstance(item, PickerItem), msg
+        assert DataCopyDialog.__DATA__, "No stored data to paste"
 
         # Filter data keys to copy
-        keys = list()
+        keys = []
         for state in DataCopyDialog.__STATES__:
             if not state.get():
                 continue
             keys.append(state.name)
 
         # Build valid data
-        data = dict()
+        data = {}
         for key in keys:
-            if not key in DataCopyDialog.__DATA__:
+            if key not in DataCopyDialog.__DATA__:
                 continue
             data[key] = DataCopyDialog.__DATA__[key]
 
@@ -770,7 +755,8 @@ class DataCopyDialog(QtWidgets.QDialog):
         '''Will get and store data for specified item
         '''
         # Sanity check
-        assert isinstance(item, PickerItem), 'Item is not an PickerItem instance'
+        msg = "Item is not an PickerItem instance"
+        assert isinstance(item, PickerItem), msg
 
         # Get picker item data
         data = item.get_data()
@@ -782,9 +768,10 @@ class DataCopyDialog(QtWidgets.QDialog):
 
 
 class CustomScriptEditDialog(QtWidgets.QDialog):
-    '''Custom python script window (used for custom picker item action and context menu)
+    '''Custom python script window (used for custom picker item
+    action and context menu)
     '''
-    __TITLE__ = 'Custom script'
+    __TITLE__ = "Custom script"
 
     def __init__(self,
                  parent=None,
@@ -802,11 +789,14 @@ class CustomScriptEditDialog(QtWidgets.QDialog):
     def get_default_script():
         '''Custom script default content
         '''
-        text = '# Custom anim_picker python script window\n'
-        text += '# Use the following faviable in your code to access related data:\n'
-        text += '# __CONTROLS__ for picker item associated controls (will return sets and not content).\n'
-        text += '# __FLATCONTROLS__ for associated controls and control set content.\n'
-        text += '# __NAMESPACE__ for current picker namespace\n'
+        text = "# Custom anim_picker python script window\n"
+        text += "# Use the following variables in your code to access \
+        related data:\n"
+        text += "# __CONTROLS__ for picker item associated controls \
+        (will return sets and not content).\n"
+        text += "# __FLATCONTROLS__ for associated controls and control \
+        set content.\n"
+        text += "# __NAMESPACE__ for current picker namespace\n"
         text += '\n'
         return text
 
@@ -832,15 +822,15 @@ class CustomScriptEditDialog(QtWidgets.QDialog):
         self.main_layout.addLayout(btn_layout)
 
         ok_btn = CallbackButton(callback=self.accept_event)
-        ok_btn.setText('Ok')
+        ok_btn.setText("Ok")
         btn_layout.addWidget(ok_btn)
 
         cancel_btn = CallbackButton(callback=self.cancel_event)
-        cancel_btn.setText('Cancel')
+        cancel_btn.setText("Cancel")
         btn_layout.addWidget(cancel_btn)
 
         run_btn = CallbackButton(callback=self.run_event)
-        run_btn.setText('Run')
+        run_btn.setText("Run")
         btn_layout.addWidget(run_btn)
 
         self.resize(500, 600)
@@ -892,13 +882,9 @@ class CustomScriptEditDialog(QtWidgets.QDialog):
 class CustomMenuEditDialog(CustomScriptEditDialog):
     '''Custom python script window for picker item context menu
     '''
-    __TITLE__ = 'Custom Menu'
+    __TITLE__ = "Custom Menu"
 
-    def __init__(self,
-                 parent=None,
-                 name=None,
-                 cmd=None,
-                 item=None):
+    def __init__(self, parent=None, name=None, cmd=None, item=None):
 
         self.name = name
         CustomScriptEditDialog.__init__(self,
@@ -916,7 +902,7 @@ class CustomMenuEditDialog(CustomScriptEditDialog):
         name_layout = QtWidgets.QHBoxLayout(self)
 
         label = QtWidgets.QLabel()
-        label.setText('Name')
+        label.setText("Name")
         name_layout.addWidget(label)
 
         self.name_widget = QtWidgets.QLineEdit()
@@ -931,8 +917,8 @@ class CustomMenuEditDialog(CustomScriptEditDialog):
         '''
         if not self.name_widget.text():
             QtWidgets.QMessageBox.warning(self,
-                                      "Warning",
-                                      "You need to specify a menu name")
+                                          "Warning",
+                                          "You need to specify a menu name")
             return
 
         self.apply = True
@@ -963,8 +949,8 @@ class CustomMenuEditDialog(CustomScriptEditDialog):
 class SearchAndReplaceDialog(QtWidgets.QDialog):
     '''Search and replace dialog window
     '''
-    __SEARCH_STR__ = '^L_'
-    __REPLACE_STR__ = 'R_'
+    __SEARCH_STR__ = "^L_"
+    __REPLACE_STR__ = "R_"
 
     def __init__(self, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
@@ -975,7 +961,7 @@ class SearchAndReplaceDialog(QtWidgets.QDialog):
     def setup(self):
         '''Build/Setup the dialog window
         '''
-        self.setWindowTitle('Search And Replace')
+        self.setWindowTitle("Search And Replace")
 
         # Add layout
         self.main_layout = QtWidgets.QVBoxLayout(self)
@@ -994,11 +980,11 @@ class SearchAndReplaceDialog(QtWidgets.QDialog):
         self.main_layout.addLayout(btn_layout)
 
         ok_btn = CallbackButton(callback=self.accept_event)
-        ok_btn.setText('Ok')
+        ok_btn.setText("Ok")
         btn_layout.addWidget(ok_btn)
 
         cancel_btn = CallbackButton(callback=self.cancel_event)
-        cancel_btn.setText('Cancel')
+        cancel_btn.setText("Cancel")
         btn_layout.addWidget(cancel_btn)
 
         ok_btn.setFocus()
@@ -1041,10 +1027,13 @@ class SearchAndReplaceDialog(QtWidgets.QDialog):
 
 class OrderedGraphicsScene(QtWidgets.QGraphicsScene):
     '''
-    Custom QGraphicsScene with x/y axis line options for origin feedback in edition mode
-    (provides a center reference to work from, view will fit what ever is the content in use mode).
+    Custom QGraphicsScene with x/y axis line options for origin
+    feedback in edition mode
+    (provides a center reference to work from, view will fit what ever
+    is the content in use mode).
 
-    Had to add z_index support since there was a little z conflict when "moving" items to back/front in edit mode
+    Had to add z_index support since there was a little z
+    conflict when "moving" items to back/front in edit mode
     '''
     __DEFAULT_SCENE_WIDTH__ = 400
     __DEFAULT_SCENE_HEIGHT__ = 600
@@ -1058,7 +1047,7 @@ class OrderedGraphicsScene(QtWidgets.QGraphicsScene):
     def set_size(self, width, heith):
         '''Will set scene size with proper center position
         '''
-        self.setSceneRect( -width/2, -heith/2, width, heith )
+        self.setSceneRect(-width / 2, -heith / 2, width, heith)
 
     def set_default_size(self):
         self.set_size(self.__DEFAULT_SCENE_WIDTH__,
@@ -1106,7 +1095,7 @@ class OrderedGraphicsScene(QtWidgets.QGraphicsScene):
     def get_picker_items(self):
         '''Will return all scenes' picker items
         '''
-        picker_items = list()
+        picker_items = []
         # Filter picker items (from handles etc)
         for item in self.items():
             if not isinstance(item, PickerItem):
@@ -1157,8 +1146,9 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
             # use the GL widget for viewing
             self.setViewport(gl_widget)
 
-        self.setResizeAnchor( self.AnchorViewCenter )
+        self.setResizeAnchor(self.AnchorViewCenter)
 
+        # TODO
 #        # Set selection mode
 #        self.setRubberBandSelectionMode(QtCore.Qt.IntersectsItemBoundingRect)
 #        self.setDragMode(self.RubberBandDrag)
@@ -1167,17 +1157,18 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
         self.pan_active = False
 
         # Disable scroll bars
-        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff);
-        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff);
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
 
         # Set background color
-        brush = QtGui.QBrush(QtGui.QColor(70,70,70,255))
+        brush = QtGui.QBrush(QtGui.QColor(70, 70, 70, 255))
         self.setBackgroundBrush(brush)
         self.background_image = None
         self.background_image_path = None
 
     def get_center_pos(self):
-        return self.mapToScene(QtCore.QPoint(self.width()/2, self.height()/2))
+        return self.mapToScene(QtCore.QPoint(self.width() / 2,
+                                             self.height() / 2))
 
     def mousePressEvent(self, event):
         '''Overload to clear selection on empty area
@@ -1198,9 +1189,9 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
             self.pan_active = True
             self.scene_mouse_origin = self.mapToScene(event.pos())
 
-#        # Rubber band selection support
-#        self.scene_mouse_origin = self.mapToScene(event.pos())
-#        self.drag_active = True
+            # Rubber band selection support
+            # self.scene_mouse_origin = self.mapToScene(event.pos())
+            # self.drag_active = True
 
     def mouseMoveEvent(self, event):
         result = QtWidgets.QGraphicsView.mouseMoveEvent(self, event)
@@ -1209,43 +1200,44 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
             current_center = self.get_center_pos()
             scene_paning = self.mapToScene(event.pos())
 
-            new_center = current_center -(scene_paning -self.scene_mouse_origin)
+            new_center = current_center - (scene_paning -
+                                           self.scene_mouse_origin)
             self.centerOn(new_center)
 
         return result
 
-
     def mouseReleaseEvent(self, event):
         result = QtWidgets.QGraphicsView.mouseReleaseEvent(self, event)
 
-#        # Area selection
-#        if (self.drag_active and event.button() == QtCore.Qt.LeftButton):
-#            scene_drag_end = self.mapToScene(event.pos())
-#
-#            sel_area = QtCore.QRectF(self.scene_mouse_origin, scene_drag_end)
-#
-#            transform = self.viewportTransform()
-#            if not sel_area.size().isNull():
-#                items = self.scene().items(sel_area,
-#                                           QtCore.Qt.IntersectsItemShape,
-#                                           QtCore.Qt.AscendingOrder,
-#                                           deviceTransform=transform)
-#
-#                picker_items = list()
-#                for item in items:
-#                    if not isinstance(item, PickerItem):
-#                        continue
-#                    picker_items.append(item)
-#
-#                print picker_items
-#        self.drag_active = False
+        # Area selection
+        # if (self.drag_active and event.button() == QtCore.Qt.LeftButton):
+        #    scene_drag_end = self.mapToScene(event.pos())
+
+        #    sel_area = QtCore.QRectF(self.scene_mouse_origin, scene_drag_end)
+
+        #    transform = self.viewportTransform()
+        #    if not sel_area.size().isNull():
+        #        items = self.scene().items(sel_area,
+        #                                   QtCore.Qt.IntersectsItemShape,
+        #                                   QtCore.Qt.AscendingOrder,
+        #                                   deviceTransform=transform)
+
+        #        picker_items = []
+        #        for item in items:
+        #            if not isinstance(item, PickerItem):
+        #                continue
+        #            picker_items.append(item)
+
+        #        print picker_items
+        # self.drag_active = False
 
         # Middle mouse view panning
         if (self.pan_active and event.button() == QtCore.Qt.MidButton):
             current_center = self.get_center_pos()
             scene_drag_end = self.mapToScene(event.pos())
 
-            new_center = current_center -(scene_drag_end -self.scene_mouse_origin)
+            new_center = current_center - (scene_drag_end -
+                                           self.scene_mouse_origin)
             self.centerOn(new_center)
             self.pan_active = False
 
@@ -1264,10 +1256,10 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
 
         # Apply zoom
         self.zoom(factor,)
-                  #self.get_center_pos())
-                  #self.mapToScene(event.pos()))
+        # self.get_center_pos())
+        # self.mapToScene(event.pos()))
 
-    def zoom(self, factor, center=QtCore.QPointF(0,0)):
+    def zoom(self, factor, center=QtCore.QPointF(0, 0)):
         '''Zoom by factor and keep "center" in view
         '''
         self.scale(factor, factor)
@@ -1291,8 +1283,10 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
             add_action.triggered.connect(self.add_picker_item)
             menu.addAction(add_action)
 
-            toggle_handles_action = QtWidgets.QAction("Toggle all handles", None)
-            toggle_handles_action.triggered.connect(self.toggle_all_handles_event)
+            toggle_handles_action = QtWidgets.QAction("Toggle all handles",
+                                                      None)
+            func = self.toggle_all_handles_event
+            toggle_handles_action.triggered.connect(func)
             menu.addAction(toggle_handles_action)
 
             menu.addSeparator()
@@ -1301,8 +1295,10 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
             background_action.triggered.connect(self.set_background_event)
             menu.addAction(background_action)
 
-            reset_background_action = QtWidgets.QAction("Reset background", None)
-            reset_background_action.triggered.connect(self.reset_background_event)
+            reset_background_action = QtWidgets.QAction("Reset background",
+                                                        None)
+            func = self.reset_background_event
+            reset_background_action.triggered.connect(func)
             menu.addAction(reset_background_action)
 
             menu.addSeparator()
@@ -1349,7 +1345,7 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
         if event:
             ctrl.setPos(event.pos())
         else:
-            ctrl.setPos(0,0)
+            ctrl.setPos(0, 0)
 
         return ctrl
 
@@ -1361,7 +1357,7 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
                 continue
 
             # Get first status
-            if new_status == None:
+            if new_status is None:
                 new_status = not item.get_edit_status()
 
             # Set item status
@@ -1394,7 +1390,7 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
 
         # Check that path exists
         if not (path and os.path.exists(path)):
-            print '# background image not found: "%s"'%path
+            print "# background image not found: '{}'".format(path)
             return
 
         self.background_image_path = path
@@ -1414,9 +1410,10 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
         '''Set background image pick dialog window
         '''
         # Open file dialog
+        img_dir = get_images_folder_path()
         file_path = QtWidgets.QFileDialog.getOpenFileName(self,
-                                                      'Choose a background',
-                                                      get_images_folder_path())
+                                                          "Pick a background",
+                                                          img_dir)
 
         # Filter return result (based on qt version)
         if isinstance(file_path, tuple):
@@ -1454,7 +1451,7 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
     def get_picker_items(self):
         '''Return scene picker items in proper order (back to front)
         '''
-        items = list()
+        items = []
         for item in self.scene().items():
             # Skip non picker graphic items
             if not isinstance(item, PickerItem):
@@ -1471,18 +1468,18 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
     def get_data(self):
         '''Return view data
         '''
-        data = dict()
+        data = {}
 
         # Add background to data
         if self.background_image_path:
-            data['background'] = self.background_image_path
+            data["background"] = self.background_image_path
 
         # Add items to data
-        items = list()
+        items = []
         for item in self.get_picker_items():
             items.append(item.get_data())
         if items:
-            data['items'] = items
+            data["items"] = items
 
         return data
 
@@ -1492,12 +1489,12 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
         self.clear()
 
         # Set backgraound picture
-        background = data.get('background', None)
+        background = data.get("background", None)
         if background:
             self.set_background(background)
 
         # Add items to view
-        for item_data in data.get('items', list()):
+        for item_data in data.get("items", []):
             item = self.add_picker_item()
             item.set_data(item_data)
 
@@ -1522,7 +1519,7 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
         '''Default method override to draw origin axis in edit mode
         '''
         # Run default method
-        result =  QtWidgets.QGraphicsView.drawForeground(self, painter, rect)
+        result = QtWidgets.QGraphicsView.drawForeground(self, painter, rect)
 
         # Paint axis in edit mode
         if __EDIT_MODE__.get():
@@ -1534,7 +1531,7 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
         '''Draw x and y origin axis
         '''
         # Set Pen
-        pen = QtGui.QPen(QtGui.QColor(160,160,160,120),
+        pen = QtGui.QPen(QtGui.QColor(160, 160, 160, 120),
                          1,
                          QtCore.Qt.DashLine)
         painter.setPen(pen)
@@ -1542,8 +1539,10 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
         # Get event rect in scene coordinates
         # Draw x line
         if rect.y() < 0 and (rect.height() - rect.y()) > 0:
-            x_line = QtCore.QLine(rect.x(),0,
-                                  rect.width() + rect.x(), 0)
+            x_line = QtCore.QLine(rect.x(),
+                                  0,
+                                  rect.width() + rect.x(),
+                                  0)
             painter.drawLine(x_line)
 
         # Draw y line
@@ -1556,7 +1555,7 @@ class GraphicViewWidget(QtWidgets.QGraphicsView):
 class DefaultPolygon(QtWidgets.QGraphicsObject):
     '''Default polygon class, with move and hover support
     '''
-    __DEFAULT_COLOR__ = QtGui.QColor(0,0,0,255)
+    __DEFAULT_COLOR__ = QtGui.QColor(0, 0, 0, 255)
 
     def __init__(self, parent=None):
         QtWidgets.QGraphicsObject.__init__(self, parent=parent)
@@ -1598,7 +1597,8 @@ class DefaultPolygon(QtWidgets.QGraphicsObject):
         # Catch position update
         if change == self.ItemPositionChange:
             # Force scene update to prevent "ghosts"
-            # (ghost happen when the previous polygon is out of the new bounding rect when updating)
+            # (ghost happen when the previous polygon is out of
+            # the new bounding rect when updating)
             if self.scene():
                 self.scene().update()
 
@@ -1618,7 +1618,8 @@ class DefaultPolygon(QtWidgets.QGraphicsObject):
         elif isinstance(color, (list, tuple)):
             color = QtGui.QColor(*color)
 
-        assert isinstance(color, QtGui.QColor), 'input color"%s" is invalid'
+        msg = "input color '{}' is invalid".format(color)
+        assert isinstance(color, QtGui.QColor), msg
 
         self.color = color
         self.update()
@@ -1629,18 +1630,11 @@ class DefaultPolygon(QtWidgets.QGraphicsObject):
 class PointHandle(DefaultPolygon):
     '''Handle polygon object to move picker polygon cvs
     '''
-    __DEFAULT_COLOR__ = QtGui.QColor(30,30,30,200)
+    __DEFAULT_COLOR__ = QtGui.QColor(30, 30, 30, 200)
 
-    def __init__(self,
-                 x=0,
-                 y=0,
-                 size=8,
-                 color=None,
-                 parent=None,
-                 index=0):
+    def __init__(self, x=0, y=0, size=8, color=None, parent=None, index=0):
 
         DefaultPolygon.__init__(self, parent)
-
 
         # Make movable
         self.setFlag(self.ItemIsMovable)
@@ -1660,11 +1654,12 @@ class PointHandle(DefaultPolygon):
         # Add index element
         self.index = PointHandleIndex(parent=self, index=index)
 
-    #===========================================================================
+    # =========================================================================
     # Default python methods
-    #===========================================================================
+    # =========================================================================
     def _new_pos_handle_copy(self, pos):
-        '''Return a new PointHandle isntance with same attributes but different position
+        '''Return a new PointHandle isntance with same attributes
+        but different position
         '''
         new_handle = PointHandle(x=pos.x(),
                                  y=pos.y(),
@@ -1698,9 +1693,9 @@ class PointHandle(DefaultPolygon):
         new_pos = self.pos() / other
         return self._new_pos_handle_copy(new_pos)
 
-    #===========================================================================
+    # =========================================================================
     # QT OVERRIDES
-    #===========================================================================
+    # =========================================================================
     def setX(self, value=0):
         '''Override to support keyword argument for spin_box callback
         '''
@@ -1711,16 +1706,20 @@ class PointHandle(DefaultPolygon):
         '''
         DefaultPolygon.setY(self, value)
 
-    #===========================================================================
+    # =========================================================================
     # Graphic item methods
-    #===========================================================================
+    # =========================================================================
     def shape(self):
         '''Return default handle square shape based on specified size
         '''
         path = QtGui.QPainterPath()
-        rectangle = QtCore.QRectF(QtCore.QPointF(-self.size / 2.0, self.size / 2.0),
-                                  QtCore.QPointF(self.size / 2.0, -self.size / 2.0))
-#        path.addRect(rectangle)
+        # TODO some ints are being set to negative, make sure it survived the
+        # pep8
+        rectangle = QtCore.QRectF(QtCore.QPointF(-self.size / 2.0,
+                                                 self.size / 2.0),
+                                  QtCore.QPointF(self.size / 2.0,
+                                                 -self.size / 2.0))
+       # path.addRect(rectangle)
         path.addEllipse(rectangle)
         return path
 
@@ -1743,7 +1742,7 @@ class PointHandle(DefaultPolygon):
         # Paint background
         painter.fillPath(path, brush)
 
-        border_pen = QtGui.QPen(QtGui.QColor(200,200,200,255))
+        border_pen = QtGui.QPen(QtGui.QColor(200, 200, 200, 255))
         painter.setPen(border_pen)
 
         # Paint Borders
@@ -1751,8 +1750,8 @@ class PointHandle(DefaultPolygon):
 
         # if not edit_mode: return
         # Paint center cross
-        cross_size = self.size/2 -2
-        painter.setPen( QtGui.QColor(0,0,0,180) )
+        cross_size = self.size / 2 - 2
+        painter.setPen(QtGui.QColor(0, 0, 0, 180))
         painter.drawLine(-cross_size, 0, cross_size, 0)
         painter.drawLine(0, cross_size, 0, -cross_size)
 
@@ -1781,15 +1780,13 @@ class PointHandle(DefaultPolygon):
 class Polygon(DefaultPolygon):
     '''
     Picker controls visual graphic object
-    (inherits from QtWidgets.QGraphicsObject rather than QtWidgets.QGraphicsItem for signal support)
+    (inherits from QtWidgets.QGraphicsObject rather
+    than QtWidgets.QGraphicsItem for signal support)
     '''
-    __DEFAULT_COLOR__ = QtGui.QColor(200,200,200,180)
-    __DEFAULT_SELECT_COLOR__ = QtGui.QColor(0,30,0,180)
+    __DEFAULT_COLOR__ = QtGui.QColor(200, 200, 200, 180)
+    __DEFAULT_SELECT_COLOR__ = QtGui.QColor(0, 30, 0, 180)
 
-    def __init__(self,
-                 parent=None, # QGraphicItem
-                 points=list(),
-                 color=None):
+    def __init__(self, parent=None, points=[], color=None):
 
         DefaultPolygon.__init__(self, parent=parent)
         self.points = points
@@ -1803,14 +1800,15 @@ class Polygon(DefaultPolygon):
         self.update()
 
     def shape(self):
-        '''Override function to return proper "hit box", and compute shape only once.
+        '''Override function to return proper "hit box",
+        and compute shape only once.
         '''
         path = QtGui.QPainterPath()
 
         # Polygon case
-        if len(self.points)>2:
+        if len(self.points) > 2:
             # Define polygon points for closed loop
-            shp_points = list()
+            shp_points = []
             for handle in self.points:
                 shp_points.append(handle.pos())
             shp_points.append(self.points[0].pos())
@@ -1824,7 +1822,8 @@ class Polygon(DefaultPolygon):
         # Circle case
         else:
             center = self.points[0].pos()
-            radius = QtGui.QVector2D(self.points[0].pos()-self.points[1].pos()).length()
+            radius = QtGui.QVector2D(self.points[0].pos() -
+                                     self.points[1].pos()).length()
 
             # Update path
             path.addEllipse(center.x() - radius,
@@ -1856,7 +1855,7 @@ class Polygon(DefaultPolygon):
 
         # Add white layer color overlay on selected state
         if self.selected:
-            color = QtGui.QColor(255,255,255, 50)
+            color = QtGui.QColor(255, 255, 255, 50)
             brush = QtGui.QBrush(color)
             painter.fillPath(path, brush)
 
@@ -1879,7 +1878,7 @@ class Polygon(DefaultPolygon):
 
         # Paint center cross
         painter.setRenderHints(QtGui.QPainter.HighQualityAntialiasing, False)
-        painter.setPen( QtGui.QColor(0,0,0,180) )
+        painter.setPen(QtGui.QColor(0, 0, 0, 180))
         painter.drawLine(-5, 0, 5, 0)
         painter.drawLine(0, 5, 0, -5)
 
@@ -1905,7 +1904,7 @@ class Polygon(DefaultPolygon):
 class PointHandleIndex(QtWidgets.QGraphicsSimpleTextItem):
     '''Point handle index text element
     '''
-    __DEFAULT_COLOR__ = QtGui.QColor(130,50,50,255)
+    __DEFAULT_COLOR__ = QtGui.QColor(130, 50, 50, 255)
 
     def __init__(self, parent=None, scene=None, index=0):
         QtWidgets.QGraphicsSimpleTextItem.__init__(self, parent, scene)
@@ -1913,7 +1912,7 @@ class PointHandleIndex(QtWidgets.QGraphicsSimpleTextItem):
         # Init defaults
         self.set_size()
         self.set_color(PointHandleIndex.__DEFAULT_COLOR__)
-        self.setPos(QtCore.QPointF(-9,-14))
+        self.setPos(QtCore.QPointF(-9, -14))
         self.setFlag(self.ItemIgnoresTransformations)
 
         # Hide by default
@@ -1946,7 +1945,7 @@ class PointHandleIndex(QtWidgets.QGraphicsSimpleTextItem):
 class GraphicText(QtWidgets.QGraphicsSimpleTextItem):
     '''Picker item text element
     '''
-    __DEFAULT_COLOR__ = QtGui.QColor(30,30,30,255)
+    __DEFAULT_COLOR__ = QtGui.QColor(30, 30, 30, 255)
 
     def __init__(self, parent=None, scene=None):
         QtWidgets.QGraphicsSimpleTextItem.__init__(self, parent, scene)
@@ -2014,6 +2013,7 @@ class GraphicText(QtWidgets.QGraphicsSimpleTextItem):
 class PickerItem(DefaultPolygon):
     '''Main picker graphic item container
     '''
+
     def __init__(self,
                  parent=None,
                  point_count=4,
@@ -2022,7 +2022,7 @@ class PickerItem(DefaultPolygon):
         DefaultPolygon.__init__(self, parent=parent)
         self.point_count = point_count
 
-        self.setPos(25,30)
+        self.setPos(25, 30)
 
         # Make item movable
         if __EDIT_MODE__.get():
@@ -2042,12 +2042,12 @@ class PickerItem(DefaultPolygon):
         self.text = GraphicText(parent=self)
 
         # Add handles
-        self.handles = list()
+        self.handles = []
         self.set_handles(self.get_default_handles())
 
         # Controls vars
-        self.controls = list()
-        self.custom_menus = list()
+        self.controls = []
+        self.custom_menus = []
 
         # Custom action
         self.custom_action = False
@@ -2071,27 +2071,27 @@ class PickerItem(DefaultPolygon):
 
     def paint(self, painter, *args, **kwargs):
         pass
-#        ## for debug only
-#        # Set render quality
-#        if __USE_OPENGL__:
-#            painter.setRenderHint(QtGui.QPainter.HighQualityAntialiasing)
-#        else:
-#            painter.setRenderHint(QtGui.QPainter.Antialiasing)
-#
-#        # Get polygon path
-#        path = self.shape()
-#
-#        # Set node background color
-#        brush = QtGui.QBrush(QtGui.QColor(0,0,200,255))
-#
-#        # Paint background
-#        painter.fillPath(path, brush)
-#
-#        border_pen = QtGui.QPen(QtGui.QColor(0,200,0,255))
-#        painter.setPen(border_pen)
-#
-#        # Paint Borders
-#        painter.drawPath(path)
+        # for debug only
+        # # Set render quality
+        # if __USE_OPENGL__:
+        #    painter.setRenderHint(QtGui.QPainter.HighQualityAntialiasing)
+        # else:
+        #    painter.setRenderHint(QtGui.QPainter.Antialiasing)
+
+        # # Get polygon path
+        # path = self.shape()
+
+        # # Set node background color
+        # brush = QtGui.QBrush(QtGui.QColor(0,0,200,255))
+
+        # # Paint background
+        # painter.fillPath(path, brush)
+
+        # border_pen = QtGui.QPen(QtGui.QColor(0,200,0,255))
+        # painter.setPen(border_pen)
+
+        # # Paint Borders
+        # painter.drawPath(path)
 
     def get_default_handles(self):
         '''
@@ -2099,22 +2099,22 @@ class PickerItem(DefaultPolygon):
         (on circle)
         '''
         unit_scale = 20
-        handles = list()
+        handles = []
 
         # Define angle step
         angle_step = pi * 2 / self.point_count
 
         # Generate point coordinates
         for i in range(0, self.point_count):
-            x = sin(i * angle_step + pi/self.point_count) * unit_scale
-            y = cos(i * angle_step + pi/self.point_count) * unit_scale
-            handle = PointHandle(x=x, y=y, parent=self, index=i+1)
+            x = sin(i * angle_step + pi / self.point_count) * unit_scale
+            y = cos(i * angle_step + pi / self.point_count) * unit_scale
+            handle = PointHandle(x=x, y=y, parent=self, index=i + 1)
             handles.append(handle)
 
         # Circle case
         if len(handles) == 2:
             handles.reverse()
-            handles[0] = handles[0] + (handles[1] - handles[0])/2
+            handles[0] = handles[0] + (handles[1] - handles[0]) / 2
 
         return handles
 
@@ -2144,15 +2144,22 @@ class PickerItem(DefaultPolygon):
             handle.deleteLater()
 
         # Parse input type
-        new_handles = list()
-        index = 1 # start index at 1 since table Widget raw are indexed at 1
+        new_handles = []
+        # start index at 1 since table Widget raw are indexed at 1
+        index = 1
         for handle in handles:
             if isinstance(handle, (list, tuple)):
-                handle = PointHandle(x=handle[0], y=handle[1], parent=self, index=index)
+                handle = PointHandle(x=handle[0],
+                                     y=handle[1],
+                                     parent=self,
+                                     index=index)
             elif hasattr(handle, 'x') and hasattr(handle, 'y'):
-                handle = PointHandle(x=handle.x(), y=handle.y(), parent=self, index=index)
+                handle = PointHandle(x=handle.x(),
+                                     y=handle.y(),
+                                     parent=self,
+                                     index=index)
             new_handles.append(handle)
-            index +=1
+            index += 1
 
         # Update handles list
         self.handles = new_handles
@@ -2165,7 +2172,7 @@ class PickerItem(DefaultPolygon):
         # Set new point count
         self.point_count = len(self.handles)
 
-    #===========================================================================
+    # =========================================================================
     # Mouse events ---
     def hoverEnterEvent(self, event=None):
         '''Update tooltip on hoover with associated controls in edit mode
@@ -2207,15 +2214,15 @@ class PickerItem(DefaultPolygon):
 
         # Shift cases (toggle)
         if modifiers == QtCore.Qt.ShiftModifier:
-            modifier = 'shift'
+            modifier = "shift"
 
         # Controls case
         if modifiers == QtCore.Qt.ControlModifier:
-            modifier = 'control'
+            modifier = "control"
 
         # Alt case (remove)
         if modifiers == QtCore.Qt.AltModifier:
-            modifier = 'alt'
+            modifier = "alt"
 
         # Call action
         self.select_associated_controls(modifier=modifier)
@@ -2246,8 +2253,8 @@ class PickerItem(DefaultPolygon):
         else:
             self.default_context_menu(event)
 
-#        # Force call release method
-#        self.mouseReleaseEvent(event)
+        # Force call release method
+        # self.mouseReleaseEvent(event)
 
     def edit_context_menu(self, event):
         '''Context menu (right click) in edition mode
@@ -2268,7 +2275,7 @@ class PickerItem(DefaultPolygon):
 
         # Shape options menu
         shape_menu = QtWidgets.QMenu(menu)
-        shape_menu.setTitle('Shape')
+        shape_menu.setTitle("Shape")
 
         move_action = QtWidgets.QAction("Move to center", None)
         move_action.triggered.connect(self.move_to_center)
@@ -2335,7 +2342,7 @@ class PickerItem(DefaultPolygon):
 
         # Control association
         ctrls_menu = QtWidgets.QMenu(menu)
-        ctrls_menu.setTitle('Ctrls Association')
+        ctrls_menu.setTitle("Ctrls Association")
 
         select_action = QtWidgets.QAction("Select", None)
         select_action.triggered.connect(self.select_associated_controls)
@@ -2348,7 +2355,8 @@ class PickerItem(DefaultPolygon):
         menu.addMenu(ctrls_menu)
 
         # Open context menu under mouse
-        offseted_pos = event.pos() + QtCore.QPointF(5,0) # offset position to prevent accidental mouse release on menu
+        # offset position to prevent accidental mouse release on menu
+        offseted_pos = event.pos() + QtCore.QPointF(5, 0)
         scene_pos = self.mapToScene(offseted_pos)
         view_pos = self.parent().mapFromScene(scene_pos)
         screen_pos = self.parent().mapToGlobal(view_pos)
@@ -2360,10 +2368,10 @@ class PickerItem(DefaultPolygon):
         # Init context menu
         menu = QtWidgets.QMenu(self.parent())
 
-#        # Add reset action
-#        reset_action = QtWidgets.QAction("Reset", None)
-#        reset_action.triggered.connect(self.active_control.reset_to_bind_pose)
-#        menu.addAction(reset_action)
+        # Add reset action
+        # reset_action = QtWidgets.QAction("Reset", None)
+        # reset_action.triggered.connect(self.active_control.reset_to_bind_pose)
+        # menu.addAction(reset_action)
 
         # Add custom actions
         actions = self._get_custom_action_menus()
@@ -2375,7 +2383,8 @@ class PickerItem(DefaultPolygon):
             return
 
         # Open context menu under mouse
-        offseted_pos = event.pos() + QtCore.QPointF(5,0) # offset position to prevent accidental mouse release on menu
+        # offset position to prevent accidental mouse release on menu
+        offseted_pos = event.pos() + QtCore.QPointF(5, 0)
         scene_pos = self.mapToScene(offseted_pos)
         view_pos = self.parent().mapFromScene(scene_pos)
         screen_pos = self.parent().mapToGlobal(view_pos)
@@ -2384,22 +2393,24 @@ class PickerItem(DefaultPolygon):
     def get_exec_env(self):
         '''
         Will return proper environnement dictionnary for eval execs
-        (Will provide related controls as __CONTROLS__ and __NAMESPACE__ variables)
+        (Will provide related controls as __CONTROLS__
+        and __NAMESPACE__ variables)
         '''
         # Init env
-        env  = dict()
+        env = {}
 
         # Add controls vars
-        env['__CONTROLS__'] = self.get_controls()
-        env['__FLATCONTROLS__'] = maya_handlers.get_flattened_nodes(self.get_controls())
-        env['__NAMESPACE__'] = self.get_namespace()
+        env["__CONTROLS__"] = self.get_controls()
+        ctrls = self.get_controls()
+        env["__FLATCONTROLS__"] = maya_handlers.get_flattened_nodes(ctrls)
+        env["__NAMESPACE__"] = self.get_namespace()
 
         return env
 
     def _get_custom_action_menus(self):
-        # Init action list to fix loop problem where qmenu only show last action
-        # when using the same variable name ...
-        actions = list()
+        # Init action list to fix loop problem where qmenu only
+        # show last action when using the same variable name ...
+        actions = []
 
         # Define custom exec cmd wrapper
         def wrapper(cmd):
@@ -2420,7 +2431,7 @@ class PickerItem(DefaultPolygon):
 
         return actions
 
-    #===========================================================================
+    # =========================================================================
     # Edit picker item options ---
     def edit_options(self):
         '''Open Edit options window
@@ -2430,10 +2441,12 @@ class PickerItem(DefaultPolygon):
             try:
                 self.edit_window.close()
                 self.edit_window.deleteLater()
-            except:pass
+            except Exception:
+                pass
 
         # Init new window
-        self.edit_window = ItemOptionsWindow(parent=self.main_window, picker_item=self)
+        self.edit_window = ItemOptionsWindow(parent=self.main_window,
+                                             picker_item=self)
 
         # Show window
         self.edit_window.show()
@@ -2457,7 +2470,7 @@ class PickerItem(DefaultPolygon):
         '''
         self.set_edit_status(not self._edit_status)
 
-    #===========================================================================
+    # =========================================================================
     # Properties methods ---
     def get_color(self):
         '''Get polygon color
@@ -2469,7 +2482,7 @@ class PickerItem(DefaultPolygon):
         '''
         self.polygon.set_color(color)
 
-    #===========================================================================
+    # =========================================================================
     # Text handling ---
     def get_text(self):
         return self.text.get_text()
@@ -2489,7 +2502,7 @@ class PickerItem(DefaultPolygon):
     def set_text_size(self, size):
         self.text.set_size(size)
 
-    #===========================================================================
+    # =========================================================================
     # Scene Placement ---
     def move_to_front(self):
         '''Move picker item to scene front
@@ -2528,14 +2541,14 @@ class PickerItem(DefaultPolygon):
     def move_to_center(self):
         '''Move picker item to pos 0,0
         '''
-        self.setPos(0,0)
+        self.setPos(0, 0)
 
     def remove(self):
         self.scene().removeItem(self)
         self.setParent(None)
         self.deleteLater()
 
-    #===========================================================================
+    # =========================================================================
     # Ducplicate and mirror methods ---
     def mirror_position(self):
         '''Mirror picker position (on X axis)
@@ -2598,7 +2611,7 @@ class PickerItem(DefaultPolygon):
         '''
         DataCopyDialog.options(self)
 
-    #===========================================================================
+    # =========================================================================
     # Transforms ---
     def scale_shape(self, x=1.0, y=1.0, world=False):
         '''Will scale shape based on axis x/y factors
@@ -2614,7 +2627,7 @@ class PickerItem(DefaultPolygon):
 
         self.update()
 
-    #===========================================================================
+    # =========================================================================
     # Custom action handling ---
     def get_custom_action_mode(self):
         return self.custom_action
@@ -2628,7 +2641,7 @@ class PickerItem(DefaultPolygon):
     def get_custom_action_script(self):
         return self.custom_action_script
 
-    #===========================================================================
+    # =========================================================================
     # Controls handling ---
     def get_namespace(self):
         '''Will return associated namespace
@@ -2655,9 +2668,9 @@ class PickerItem(DefaultPolygon):
             return list(self.controls)
 
         # Prefix nodes with namespace
-        nodes = list()
+        nodes = []
         for node in self.controls:
-            nodes.append('%s:%s'%(namespace, node))
+            nodes.append("{}:{}".format(namespace, node))
 
         return nodes
 
@@ -2669,7 +2682,7 @@ class PickerItem(DefaultPolygon):
     def remove_control(self, ctrl):
         '''Remove control from list
         '''
-        if not ctrl in self.controls:
+        if ctrl not in self.controls:
             return
         self.controls.remove(ctrl)
 
@@ -2692,8 +2705,8 @@ class PickerItem(DefaultPolygon):
         # Print warning
         if node_missing:
             QtWidgets.QMessageBox.warning(self.parent(),
-                                      "Warning",
-                                      "Some target controls do not exist")
+                                          "Warning",
+                                          "Some target controls do not exist")
 
         # Update list
         self.set_control_list(controls)
@@ -2709,7 +2722,7 @@ class PickerItem(DefaultPolygon):
     def replace_controls_selection(self):
         '''Will replace controls association with current selection
         '''
-        self.set_control_list(list())
+        self.set_control_list([])
         self.add_selected_controls()
 
     def add_selected_controls(self):
@@ -2749,7 +2762,7 @@ class PickerItem(DefaultPolygon):
         '''
         self.set_selected_state(self.is_selected())
 
-    #===========================================================================
+    # =========================================================================
     # Custom menus handling ---
     def set_custom_menus(self, menus):
         '''Set custom menu list for current poly data
@@ -2761,80 +2774,80 @@ class PickerItem(DefaultPolygon):
         '''
         return self.custom_menus
 
-    #===========================================================================
+    # =========================================================================
     # Data handling ---
     def set_data(self, data):
         '''Set picker item from data dictionary
         '''
         # Set color
-        if 'color' in data:
-            color = QtGui.QColor(*data['color'])
+        if "color" in data:
+            color = QtGui.QColor(*data["color"])
             self.set_color(color)
 
         # Set position
-        if 'position' in data:
-            position = data.get('position', [0,0])
+        if "position" in data:
+            position = data.get("position", [0, 0])
             self.setPos(*position)
 
         # Set handles
-        if 'handles' in data:
-            self.set_handles(data['handles'])
+        if "handles" in data:
+            self.set_handles(data["handles"])
 
         # Set action mode
-        if data.get('action_mode', False):
+        if data.get("action_mode", False):
             self.set_custom_action_mode(True)
-            self.set_custom_action_script(data.get('action_script', None))
+            self.set_custom_action_script(data.get("action_script", None))
 
         # Set controls
-        if 'controls' in data:
-            self.set_control_list(data['controls'])
+        if "controls" in data:
+            self.set_control_list(data["controls"])
 
         # Set custom menus
-        if 'menus' in data:
-            self.set_custom_menus(data['menus'])
+        if "menus" in data:
+            self.set_custom_menus(data["menus"])
 
         # Set text
-        if 'text' in data:
-            self.set_text(data['text'])
-            self.set_text_size(data['text_size'])
-            color = QtGui.QColor(*data['text_color'])
+        if "text" in data:
+            self.set_text(data["text"])
+            self.set_text_size(data["text_size"])
+            color = QtGui.QColor(*data["text_color"])
             self.set_text_color(color)
 
     def get_data(self):
         '''Get picker item data in dictionary form
         '''
         # Init data dict
-        data = dict()
+        data = {}
 
         # Add polygon color
-        data['color'] = self.get_color().getRgb()
+        data["color"] = self.get_color().getRgb()
 
         # Add position
-        data['position'] = [self.x(), self.y()]
+        data["position"] = [self.x(), self.y()]
 
         # Add handles datas
-        handles_data = list()
+        handles_data = []
         for handle in self.handles:
             handles_data.append([handle.x(), handle.y()])
-        data['handles'] = handles_data
+        data["handles"] = handles_data
 
         # Add mode data
         if self.get_custom_action_mode():
-            data['action_mode'] = True
-            data['action_script'] = self.get_custom_action_script()
+            data["action_mode"] = True
+            data["action_script"] = self.get_custom_action_script()
 
         # Add controls data
         if self.get_controls():
-            data['controls'] = self.get_controls(with_namespace=False)
+            data["controls"] = self.get_controls(with_namespace=False)
 
         # Add custom menus data
         if self.get_custom_menus():
-            data['menus'] = self.get_custom_menus()
+            data["menus"] = self.get_custom_menus()
 
         if self.get_text():
-            data['text'] = self.get_text()
-            data['text_size'] = self.get_text_size()
-            data['text_color'] = self.get_text_color().getRgb()
+            data["text"] = self.get_text()
+            data["text_size"] = self.get_text_size()
+            data["text_color"] = self.get_text_color().getRgb()
 
         return data
 
@@ -2842,15 +2855,13 @@ class PickerItem(DefaultPolygon):
 class HandlesPositionWindow(QtWidgets.QMainWindow):
     '''Whild window to edit picker item handles local positions
     '''
-    __OBJ_NAME__ = 'picker_item_handles_window'
-    __TITLE__ = 'Handles positions'
+    __OBJ_NAME__ = "picker_item_handles_window"
+    __TITLE__ = "Handles positions"
 
     __DEFAULT_WIDTH__ = 250
     __DEFAULT_HEIGHT__ = 300
 
-    def __init__(self,
-                 parent=None,
-                 picker_item=None):
+    def __init__(self, parent=None, picker_item=None):
         QtWidgets.QMainWindow.__init__(self, parent=None)
 
         self.picker_item = picker_item
@@ -2867,9 +2878,9 @@ class HandlesPositionWindow(QtWidgets.QMainWindow):
         self.resize(self.__DEFAULT_WIDTH__, self.__DEFAULT_HEIGHT__)
 
         # Set size policies
-#        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
-#        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
-#        self.setSizePolicy(sizePolicy)
+        # sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        # sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+        # self.setSizePolicy(sizePolicy)
 
         # Create main widget
         self.main_widget = QtWidgets.QWidget(self)
@@ -2888,7 +2899,7 @@ class HandlesPositionWindow(QtWidgets.QMainWindow):
         self.table = QtWidgets.QTableWidget(self)
 
         self.table.setColumnCount(2)
-        self.table.setHorizontalHeaderLabels(['X', 'Y'])
+        self.table.setHorizontalHeaderLabels(["X", "Y"])
 
         self.main_layout.addWidget(self.table)
 
@@ -2897,7 +2908,7 @@ class HandlesPositionWindow(QtWidgets.QMainWindow):
         '''
         # Refresh button
         self.refresh_button = CallbackButton(callback=self.refresh_event)
-        self.refresh_button.setText('Refresh')
+        self.refresh_button.setText("Refresh")
         self.main_layout.addWidget(self.refresh_button)
 
     def refresh_event(self):
@@ -2921,13 +2932,13 @@ class HandlesPositionWindow(QtWidgets.QMainWindow):
         for i in range(len(handles)):
             self.table.insertRow(i)
             spin_box = CallBackDoubleSpinBox(callback=handles[i].setX,
-                                          value=handles[i].x(),
-                                          min=-999)
+                                             value=handles[i].x(),
+                                             min=-999)
             self.table.setCellWidget(i, 0, spin_box)
 
             spin_box = CallBackDoubleSpinBox(callback=handles[i].setY,
-                                          value=handles[i].y(),
-                                          min=-999)
+                                             value=handles[i].y(),
+                                             min=-999)
             self.table.setCellWidget(i, 1, spin_box)
 
     def display_handles_index(self, status=True):
@@ -2941,7 +2952,8 @@ class HandlesPositionWindow(QtWidgets.QMainWindow):
         return QtWidgets.QMainWindow.closeEvent(self, *args, **kwargs)
 
     def show(self, *args, **kwargs):
-        '''Override default show function to display related picker handles index
+        '''Override default show function to display related picker
+        handles index
         '''
         self.display_handles_index(status=True)
         return QtWidgets.QMainWindow.show(self, *args, **kwargs)
@@ -2950,11 +2962,11 @@ class HandlesPositionWindow(QtWidgets.QMainWindow):
 class ItemOptionsWindow(QtWidgets.QMainWindow):
     '''Child window to edit shape options
     '''
-    __OBJ_NAME__ = 'ctrl_picker_edit_window'
-    __TITLE__ = 'Picker Item Options'
+    __OBJ_NAME__ = "ctrl_picker_edit_window"
+    __TITLE__ = "Picker Item Options"
 
-    #-----------------------------------------------------------------------------------------------
-    #    constructor
+    #  ----------------------------------------------------------------------
+    # constructor
     def __init__(self, parent=None, picker_item=None):
         QtWidgets.QMainWindow.__init__(self, parent=parent)
         self.picker_item = picker_item
@@ -2979,7 +2991,8 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         self.resize(self.default_width, self.default_height)
 
         # Set size policies
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed,
+                                           QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
         self.setSizePolicy(sizePolicy)
 
@@ -2994,7 +3007,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         self.main_layout.addLayout(self.right_layout)
 
         self.control_layout = QtWidgets.QVBoxLayout()
-        self.control_layout.setContentsMargins(0,0,0,0)
+        self.control_layout.setContentsMargins(0, 0, 0, 0)
         self.right_layout.addLayout(self.control_layout)
 
         self.setCentralWidget(self.main_widget)
@@ -3027,7 +3040,8 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         if self.handles_window:
             try:
                 self.handles_window.close()
-            except:pass
+            except Exception:
+                pass
 
         QtWidgets.QMainWindow.closeEvent(self, *args, **kwargs)
 
@@ -3074,14 +3088,15 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         '''
         # Create group box
         group_box = QtWidgets.QGroupBox()
-        group_box.setTitle('Main Properties')
+        group_box.setTitle("Main Properties")
 
         # Add layout
         layout = QtWidgets.QVBoxLayout(group_box)
 
         # Add edit check box
-        self.handles_cb = CallbackCheckBoxWidget(callback=self.handles_cb_event)
-        self.handles_cb.setText('Show handles ')
+        func = self.handles_cb_event
+        self.handles_cb = CallbackCheckBoxWidget(callback=func)
+        self.handles_cb.setText("Show handles")
 
         layout.addWidget(self.handles_cb)
 
@@ -3089,10 +3104,11 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         spin_layout = QtWidgets.QHBoxLayout()
 
         spin_label = QtWidgets.QLabel()
-        spin_label.setText('Vtx Count')
+        spin_label.setText("Vtx Count")
         spin_layout.addWidget(spin_label)
 
-        self.count_sb = CallBackSpinBox(callback=self.picker_item.edit_point_count,
+        point_count = self.picker_item.edit_point_count
+        self.count_sb = CallBackSpinBox(callback=point_count,
                                         value=self.picker_item.point_count)
         self.count_sb.setMinimum(2)
         spin_layout.addWidget(self.count_sb)
@@ -3100,8 +3116,9 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         layout.addLayout(spin_layout)
 
         # Add handles position button
-        handles_button = CallbackButton(callback=self.edit_handles_position_event)
-        handles_button.setText('Handles Positions')
+        handle_position = self.edit_handles_position_event
+        handles_button = CallbackButton(callback=handle_position)
+        handles_button.setText("Handles Positions")
         layout.addWidget(handles_button)
 
         # Add to main layout
@@ -3112,7 +3129,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         '''
         # Create group box
         group_box = QtWidgets.QGroupBox()
-        group_box.setTitle('Position')
+        group_box.setTitle("Position")
 
         # Add layout
         layout = QtWidgets.QVBoxLayout(group_box)
@@ -3124,10 +3141,11 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         spin_layout = QtWidgets.QHBoxLayout()
 
         spin_label = QtWidgets.QLabel()
-        spin_label.setText('X')
+        spin_label.setText("X")
         spin_layout.addWidget(spin_label)
 
-        self.pos_x_sb = CallBackDoubleSpinBox(callback=self.edit_position_event,
+        edit_pos_event = self.edit_position_event
+        self.pos_x_sb = CallBackDoubleSpinBox(callback=edit_pos_event,
                                               value=position.x(),
                                               min=-9999)
         spin_layout.addWidget(self.pos_x_sb)
@@ -3141,7 +3159,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         label.setText('Y')
         spin_layout.addWidget(label)
 
-        self.pos_y_sb = CallBackDoubleSpinBox(callback=self.edit_position_event,
+        self.pos_y_sb = CallBackDoubleSpinBox(callback=edit_pos_event,
                                               value=position.y(),
                                               min=-9999)
         spin_layout.addWidget(self.pos_y_sb)
@@ -3168,7 +3186,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         '''
         # Create group box
         group_box = QtWidgets.QGroupBox()
-        group_box.setTitle('Color options')
+        group_box.setTitle("Color options")
 
         # Add layout
         layout = QtWidgets.QHBoxLayout(group_box)
@@ -3182,12 +3200,14 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         layout.addStretch()
 
         label = QtWidgets.QLabel()
-        label.setText('Alpha')
+        label.setText("Alpha")
         layout.addWidget(label)
 
-        self.alpha_sb = CallBackSpinBox(callback=self.change_color_alpha_event,
-                                         value=self.picker_item.get_color().alpha(),
-                                         max=255)
+        alpha_event = self.change_color_alpha_event
+        alpha_value = self.picker_item.get_color().alpha()
+        self.alpha_sb = CallBackSpinBox(callback=alpha_event,
+                                        value=alpha_value,
+                                        max=255)
         layout.addWidget(self.alpha_sb)
 
         # Add to main layout
@@ -3198,7 +3218,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         '''
         # Create group box
         group_box = QtWidgets.QGroupBox()
-        group_box.setTitle('Text options')
+        group_box.setTitle("Text options")
 
         # Add layout
         layout = QtWidgets.QVBoxLayout(group_box)
@@ -3211,11 +3231,12 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         spin_layout = QtWidgets.QHBoxLayout()
 
         spin_label = QtWidgets.QLabel()
-        spin_label.setText('Size factor')
+        spin_label.setText("Size factor")
         spin_layout.addWidget(spin_label)
 
+        text_size = self.picker_item.get_text_size()
         value_sb = CallBackDoubleSpinBox(callback=self.edit_text_size_event,
-                                         value=self.picker_item.get_text_size())
+                                         value=text_size)
         spin_layout.addWidget(value_sb)
 
         layout.addLayout(spin_layout)
@@ -3224,7 +3245,8 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         color_layout = QtWidgets.QHBoxLayout(group_box)
 
         # Add color button
-        self.text_color_button = CallbackButton(callback=self.change_text_color_event)
+        color_event = self.change_text_color_event
+        self.text_color_button = CallbackButton(callback=color_event)
 
         color_layout.addWidget(self.text_color_button)
 
@@ -3232,12 +3254,14 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         color_layout.addStretch()
 
         label = QtWidgets.QLabel()
-        label.setText('Alpha')
+        label.setText("Alpha")
         color_layout.addWidget(label)
 
-        self.text_alpha_sb = CallBackSpinBox(callback=self.change_text_alpha_event,
-                                         value=self.picker_item.get_text_color().alpha(),
-                                         max=255)
+        alpha_event = self.change_text_alpha_event
+        alpha_value = self.picker_item.get_text_color().alpha()
+        self.text_alpha_sb = CallBackSpinBox(callback=alpha_event,
+                                             value=alpha_value,
+                                             max=255)
         color_layout.addWidget(self.text_alpha_sb)
 
         # Add color layout to group box layout
@@ -3245,20 +3269,20 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
 
         # Add to main layout
         self.left_layout.addWidget(group_box)
-#
+
     def add_scale_options(self):
         '''Add scale group box options
         '''
         # Create group box
         group_box = QtWidgets.QGroupBox()
-        group_box.setTitle('Scale')
+        group_box.setTitle("Scale")
 
         # Add layout
         layout = QtWidgets.QVBoxLayout(group_box)
 
         # Add edit check box
         self.worldspace_box = QtWidgets.QCheckBox()
-        self.worldspace_box.setText('World space')
+        self.worldspace_box.setText("World space")
 
         layout.addWidget(self.worldspace_box)
 
@@ -3267,7 +3291,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         layout.addLayout(spin_layout)
 
         label = QtWidgets.QLabel()
-        label.setText('Factor')
+        label.setText("Factor")
         spin_layout.addWidget(label)
 
         self.scale_sb = QtWidgets.QDoubleSpinBox()
@@ -3280,15 +3304,15 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         layout.addLayout(btn_layout)
 
         btn = CallbackButton(callback=self.scale_event, x=True)
-        btn.setText('X')
+        btn.setText("X")
         btn_layout.addWidget(btn)
 
         btn = CallbackButton(callback=self.scale_event, y=True)
-        btn.setText('Y')
+        btn.setText("Y")
         btn_layout.addWidget(btn)
 
         btn = CallbackButton(callback=self.scale_event, x=True, y=True)
-        btn.setText('XY')
+        btn.setText("XY")
         btn_layout.addWidget(btn)
 
         # Add to main left layout
@@ -3299,31 +3323,35 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         '''
         # Create group box
         group_box = QtWidgets.QGroupBox()
-        group_box.setTitle('Action Mode')
+        group_box.setTitle("Action Mode")
 
         # Add layout
         layout = QtWidgets.QVBoxLayout(group_box)
 
         # Add default select mode radio button
-        default_rad = CallbackRadioButtonWidget('default',
+        custom_mode = not self.picker_item.get_custom_action_mode()
+        default_rad = CallbackRadioButtonWidget("default",
                                                 self.mode_radio_event,
-                                                checked=not self.picker_item.get_custom_action_mode())
-        default_rad.setText('Default action (select)')
-        default_rad.setToolTip('Run default selection action on related controls')
+                                                checked=custom_mode)
+        default_rad.setText("Default action (select)")
+        default_rad.setToolTip(
+            "Run default selection action on related controls")
         layout.addWidget(default_rad)
 
         # Add custom action script radio button
-        custom_rad = CallbackRadioButtonWidget('custom',
+        action_mode = self.picker_item.get_custom_action_mode()
+        custom_rad = CallbackRadioButtonWidget("custom",
                                                self.mode_radio_event,
-                                               checked=self.picker_item.get_custom_action_mode())
-        custom_rad.setText('Custom action (script)')
-        custom_rad.setToolTip('Change mode to run a custom action script')
+                                               checked=action_mode)
+        custom_rad.setText("Custom action (script)")
+        custom_rad.setToolTip("Change mode to run a custom action script")
         layout.addWidget(custom_rad)
 
         # Add edit custom script button
-        custom_script_btn = CallbackButton(callback=self.edit_custom_action_script)
-        custom_script_btn.setText('Edit Action script')
-        custom_script_btn.setToolTip('Open custom action script edit window')
+        custom_script = self.edit_custom_action_script
+        custom_script_btn = CallbackButton(callback=custom_script)
+        custom_script_btn.setText("Edit Action script")
+        custom_script_btn.setToolTip("Open custom action script edit window")
         layout.addWidget(custom_script_btn)
 
         self.control_layout.addWidget(group_box)
@@ -3333,14 +3361,16 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         '''
         # Create group box
         group_box = QtWidgets.QGroupBox()
-        group_box.setTitle('Control Association')
+        group_box.setTitle("Control Association")
 
         # Add layout
         layout = QtWidgets.QVBoxLayout(group_box)
 
         # Init list object
-        self.control_list = CallbackListWidget(callback=self.edit_ctrl_name_event)
-        self.control_list.setToolTip('Associated controls/objects that will be selected when clicking picker item')
+        ctrl_name = self.edit_ctrl_name_event
+        self.control_list = CallbackListWidget(callback=ctrl_name)
+        self.control_list.setToolTip("Associated controls/objects that will be\
+         selected when clicking picker item")
         layout.addWidget(self.control_list)
 
         # Add buttons
@@ -3348,20 +3378,20 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         layout.addLayout(btn_layout1)
 
         btn = CallbackButton(callback=self.add_selected_controls_event)
-        btn.setText('Add Selection')
-        btn.setToolTip('Add selected controls to list')
+        btn.setText("Add Selection")
+        btn.setToolTip("Add selected controls to list")
         btn.setMinimumWidth(75)
         btn_layout1.addWidget(btn)
 
         btn = CallbackButton(callback=self.remove_controls_event)
-        btn.setText('Remove')
-        btn.setToolTip('Remove selected controls')
+        btn.setText("Remove")
+        btn.setToolTip("Remove selected controls")
         btn.setMinimumWidth(75)
         btn_layout1.addWidget(btn)
 
         btn = CallbackButton(callback=self.search_replace_controls_event)
-        btn.setText('Search & Replace')
-        btn.setToolTip('Will search and replace all controls names')
+        btn.setText("Search & Replace")
+        btn.setToolTip("Will search and replace all controls names")
         layout.addWidget(btn)
 
         self.control_layout.addWidget(group_box)
@@ -3371,14 +3401,15 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         '''
         # Create group box
         group_box = QtWidgets.QGroupBox()
-        group_box.setTitle('Custom Menus')
+        group_box.setTitle("Custom Menus")
 
         # Add layout
         layout = QtWidgets.QVBoxLayout(group_box)
 
         # Init list object
         self.menus_list = CallbackListWidget(callback=self.edit_menu_event)
-        self.menus_list.setToolTip('Custom action menus that will be accessible through right clicking the picker item in animation mode')
+        self.menus_list.setToolTip(
+            "Custom action menus that will be accessible through right clicking the picker item in animation mode")
         layout.addWidget(self.menus_list)
 
         # Add buttons
@@ -3386,18 +3417,18 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         layout.addLayout(btn_layout1)
 
         btn = CallbackButton(callback=self.new_menu_event)
-        btn.setText('New')
+        btn.setText("New")
         btn.setMinimumWidth(60)
         btn_layout1.addWidget(btn)
 
         btn = CallbackButton(callback=self.remove_menus_event)
-        btn.setText('Remove')
+        btn.setText("Remove")
         btn.setMinimumWidth(60)
         btn_layout1.addWidget(btn)
 
         self.right_layout.addWidget(group_box)
 
-    #===========================================================================
+    # =========================================================================
     # Events
     def handles_cb_event(self, value=False):
         '''Toggle edit mode for shape
@@ -3411,16 +3442,17 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
             try:
                 self.handles_window.close()
                 self.handles_window.deleteLater()
-            except:pass
+            except Exception:
+                pass
 
         # Init new window
+        picker_item = self.picker_item
         self.handles_window = HandlesPositionWindow(parent=self,
-                                                    picker_item=self.picker_item)
+                                                    picker_item=picker_item)
 
         # Show window
         self.handles_window.show()
         self.handles_window.raise_()
-
 
     def edit_position_event(self, value=0):
         '''Will move polygon based on new values
@@ -3432,7 +3464,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         x = self.pos_x_sb.value()
         y = self.pos_y_sb.value()
 
-        self.picker_item.setPos(QtCore.QPointF(x,y))
+        self.picker_item.setPos(QtCore.QPointF(x, y))
 
     def change_color_alpha_event(self, value=255):
         '''Will edit the polygon transparency alpha value
@@ -3456,8 +3488,9 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
             return
 
         # Open color picker dialog
-        color = QtWidgets.QColorDialog.getColor(initial=self.picker_item.get_color(),
-                                            parent=self)
+        picker_color = self.picker_item.get_color()
+        color = QtWidgets.QColorDialog.getColor(initial=picker_color,
+                                                parent=self)
 
         # Abort on invalid color (cancel button)
         if not color.isValid():
@@ -3476,21 +3509,22 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         self.picker_item.set_color(color)
 
     def scale_event(self, x=False, y=False):
-        '''Will scale polygon on specified axis based on scale factor value from spin box
+        '''Will scale polygon on specified axis based on scale factor
+        value from spin box
         '''
         # Get scale factor value
         scale_factor = self.scale_sb.value()
 
         # Build kwargs
-        kwargs = {'x':1.0, 'y':1.0}
+        kwargs = {"x": 1.0, "y": 1.0}
         if x:
-            kwargs['x'] = scale_factor
+            kwargs["x"] = scale_factor
         if y:
-            kwargs['y'] = scale_factor
+            kwargs["y"] = scale_factor
 
         # Check space
         if self.worldspace_box.isChecked():
-            kwargs['world'] = True
+            kwargs["world"] = True
 
         # Apply scale
         self.picker_item.scale_shape(**kwargs)
@@ -3532,8 +3566,9 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
             return
 
         # Open color picker dialog
-        color = QtWidgets.QColorDialog.getColor(initial=self.picker_item.get_text_color(),
-                                            parent=self)
+        picker_color = self.picker_item.get_text_color()
+        color = QtWidgets.QColorDialog.getColor(initial=picker_color,
+                                                parent=self)
 
         # Abort on invalid color (cancel button)
         if not color.isValid():
@@ -3551,7 +3586,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         # Update color
         self.picker_item.set_text_color(color)
 
-    #===========================================================================
+    # =========================================================================
     # Custom action management
     def mode_radio_event(self, mode):
         '''Action mode change event
@@ -3560,23 +3595,24 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         if self.event_disabled:
             return
 
-        if mode == 'default':
+        if mode == "default":
             self.picker_item.custom_action = False
 
-        elif mode == 'custom':
+        elif mode == "custom":
             self.picker_item.custom_action = True
 
     def edit_custom_action_script(self):
 
         # Open input window
-        cmd, ok = CustomScriptEditDialog.get(cmd=self.picker_item.custom_action_script,
+        action_script = self.picker_item.custom_action_script
+        cmd, ok = CustomScriptEditDialog.get(cmd=action_script,
                                              item=self.picker_item)
         if not (ok and cmd):
             return
 
         self.picker_item.set_custom_action_script(cmd)
 
-    #===========================================================================
+    # =========================================================================
     # Control management
     def _populate_ctrl_list_widget(self):
         '''Will update/populate list with current shape ctrls
@@ -3591,8 +3627,8 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
             item.setText(controls[i])
             self.control_list.addItem(item)
 
-#        if controls:
-#            self.control_list.setCurrentRow(0)
+       # if controls:
+           # self.control_list.setCurrentRow(0)
 
     def edit_ctrl_name_event(self, item=None):
         '''Double click event on associated ctrls list
@@ -3601,11 +3637,12 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
             return
 
         # Open input window
+        line_normal = QtWidgets.QLineEdit.Normal
         name, ok = QtWidgets.QInputDialog.getText(self,
-                                              unicode("Ctrl name"),
-                                              unicode('New name'),
-                                              mode=QtWidgets.QLineEdit.Normal,
-                                              text=unicode(item.text()))
+                                                  "Ctrl name",
+                                                  "New name",
+                                                  mode=line_normal,
+                                                  text=str(item.text()))
         if not (ok and name):
             return
 
@@ -3630,7 +3667,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         '''
         # Get selected item
         items = self.control_list.selectedItems()
-        assert items, 'no list item selected'
+        assert items, "no list item selected"
 
         # Remove item from list
         for item in items:
@@ -3648,7 +3685,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
     def get_controls_from_list(self):
         '''Return the controls from list widget
         '''
-        ctrls = list()
+        ctrls = []
         for i in range(self.control_list.count()):
             item = self.control_list.item(i)
             ctrls.append(item.node())
@@ -3660,7 +3697,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         ctrls = self.get_controls_from_list()
         self.picker_item.set_control_list(ctrls)
 
-    #===========================================================================
+    # =========================================================================
     # Menus management
     def _add_menu_item(self, text=None):
         '''Add a menu item to menu list widget
@@ -3687,7 +3724,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         '''Update custom menu data
         '''
         menu_data = self.picker_item.get_custom_menus()
-        if index> len(menu_data)-1:
+        if index > len(menu_data) - 1:
             menu_data.append([name, cmd])
         else:
             menu_data[index] = [name, cmd]
@@ -3736,12 +3773,12 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
         '''
         # Get selected item
         items = self.menus_list.selectedItems()
-        assert items, 'no list item selected'
+        assert items, "no list item selected"
 
         # Remove item from list
         menu_data = self.picker_item.get_custom_menus()
         for i in range(len(items)):
-            menu_data.pop(items[i].index -i)
+            menu_data.pop(items[i].index - i)
         self.picker_item.set_custom_menus(menu_data)
 
         # Update display
@@ -3751,6 +3788,7 @@ class ItemOptionsWindow(QtWidgets.QMainWindow):
 class SaveOverlayWidget(OverlayWidget):
     '''Save options overlay widget
     '''
+
     def __init__(self, parent):
         OverlayWidget.__init__(self, parent=parent)
 
@@ -3759,7 +3797,7 @@ class SaveOverlayWidget(OverlayWidget):
 
         # Add options group box
         group_box = QtWidgets.QGroupBox()
-        group_box.setTitle('Save options')
+        group_box.setTitle("Save options")
         self.option_layout = QtWidgets.QVBoxLayout(group_box)
         self.layout.addWidget(group_box)
 
@@ -3771,7 +3809,8 @@ class SaveOverlayWidget(OverlayWidget):
         self.add_confirmation_buttons()
 
         # Add vertical spacer
-        spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(spacer)
 
         self.data_node = None
@@ -3780,7 +3819,7 @@ class SaveOverlayWidget(OverlayWidget):
         '''Save data to node option
         '''
         self.node_option_cb = QtWidgets.QCheckBox()
-        self.node_option_cb.setText('Save data to node')
+        self.node_option_cb.setText("Save data to node")
 
         self.option_layout.addWidget(self.node_option_cb)
 
@@ -3788,7 +3827,7 @@ class SaveOverlayWidget(OverlayWidget):
         '''Add save to file options
         '''
         self.file_option_cb = QtWidgets.QCheckBox()
-        self.file_option_cb.setText('Save data to file')
+        self.file_option_cb.setText("Save data to file")
 
         self.option_layout.addWidget(self.file_option_cb)
 
@@ -3798,7 +3837,7 @@ class SaveOverlayWidget(OverlayWidget):
         file_layout.addWidget(self.file_path_le)
 
         file_btn = CallbackButton(callback=self.select_file_event)
-        file_btn.setText('Select File')
+        file_btn.setText("Select File")
         file_layout.addWidget(file_btn)
 
         self.option_layout.addLayout(file_layout)
@@ -3808,18 +3847,24 @@ class SaveOverlayWidget(OverlayWidget):
         '''
         btn_layout = QtWidgets.QHBoxLayout()
 
-        spacer = QtWidgets.QSpacerItem(0,0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacer = QtWidgets.QSpacerItem(0,
+                                       0,
+                                       QtWidgets.QSizePolicy.Expanding,
+                                       QtWidgets.QSizePolicy.Minimum)
         btn_layout.addItem(spacer)
 
         close_btn = CallbackButton(callback=self.cancel_event)
-        close_btn.setText('Cancel')
+        close_btn.setText("Cancel")
         btn_layout.addWidget(close_btn)
 
         save_btn = CallbackButton(callback=self.save_event)
-        save_btn.setText('Save')
+        save_btn.setText("Save")
         btn_layout.addWidget(save_btn)
 
-        spacer = QtWidgets.QSpacerItem(0,0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacer = QtWidgets.QSpacerItem(0,
+                                       0,
+                                       QtWidgets.QSizePolicy.Expanding,
+                                       QtWidgets.QSizePolicy.Minimum)
         btn_layout.addItem(spacer)
 
         self.layout.addLayout(btn_layout)
@@ -3855,10 +3900,11 @@ class SaveOverlayWidget(OverlayWidget):
     def select_file_dialog(self):
         '''Get file dialog window starting in default folder
         '''
+        picker_msg = "Picker Datas (*.pkr)"
         file_path = QtWidgets.QFileDialog.getSaveFileName(self,
-                                                      'Choose file',
-                                                      get_module_path(),
-                                                      'Picker Datas (*.pkr)')
+                                                          "Choose file",
+                                                          get_module_path(),
+                                                          picker_msg)
 
         # Filter return result (based on qt version)
         if isinstance(file_path, tuple):
@@ -3881,7 +3927,7 @@ class SaveOverlayWidget(OverlayWidget):
         '''Process save operation
         '''
         # Get DataNode
-        assert self.data_node, 'No data_node found/selected'
+        assert self.data_node, "No data_node found/selected"
 
         # Get character data
         data = self.parent().get_character_data()
@@ -3916,26 +3962,35 @@ class AboutOverlayWidget(OverlayWidget):
         # Add Close button
         btn_layout = QtWidgets.QHBoxLayout()
 
-        spacer = QtWidgets.QSpacerItem(0,0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacer = QtWidgets.QSpacerItem(0,
+                                       0,
+                                       QtWidgets.QSizePolicy.Expanding,
+                                       QtWidgets.QSizePolicy.Minimum)
         btn_layout.addItem(spacer)
 
         close_btn = CallbackButton(callback=self.hide)
-        close_btn.setText('Close')
-        close_btn.setToolTip('Hide about informations')
+        close_btn.setText("Close")
+        close_btn.setToolTip("Hide about informations")
         btn_layout.addWidget(close_btn)
 
-        spacer = QtWidgets.QSpacerItem(0,0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacer = QtWidgets.QSpacerItem(0,
+                                       0,
+                                       QtWidgets.QSizePolicy.Expanding,
+                                       QtWidgets.QSizePolicy.Minimum)
         btn_layout.addItem(spacer)
 
         self.layout.addLayout(btn_layout)
 
         # Add vertical spacer
-        spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(0,
+                                       0,
+                                       QtWidgets.QSizePolicy.Minimum,
+                                       QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(spacer)
 
     def get_text(self):
         text = '''
-        Anim_picker, %s
+        Anim_picker, {}
 
         Copyright (c) 2012-2013 Guillaume Barlier
         This programe is covered by the LGPLv3 or later.
@@ -3943,34 +3998,32 @@ class AboutOverlayWidget(OverlayWidget):
         Check for updates on my website:
         https://github.com/gbarlier
 
-        '''%anim_picker.__version__
+        '''.format(anim_picker.__version__)
 
         return text
 
 
 class MainDockWindow(QtWidgets.QDockWidget):
-    __OBJ_NAME__ = 'ctrl_picker_window'
-    __TITLE__ = 'Anim Picker'
+    __OBJ_NAME__ = "ctrl_picker_window"
+    __TITLE__ = "Anim Picker"
 
-    def __init__(self,
-                 parent=qt_handlers.get_maya_window(),
-                 edit=False ):
+    def __init__(self, parent=qt_handlers.get_maya_window(), edit=False):
         self.ready = False
 
         '''init pyqt4 GUI'''
         QtWidgets.QDockWidget.__init__(self, parent)
 
-        self.parent =   parent
+        self.parent = parent
 
         # Window size
-        #(default size to provide a 450/700 for tab area and propoer image size)
+        # (default size to provide a 450/700 for tab area and propoer img size)
         self.default_width = 476
         self.default_height = 837
 
         # Default vars
-        self.childs = list()
+        self.childs = []
         self.status = False
-        self.script_jobs = list()
+        self.script_jobs = []
 
         __EDIT_MODE__.set_init(edit)
 
@@ -3985,8 +4038,11 @@ class MainDockWindow(QtWidgets.QDockWidget):
         self.setWindowTitle(self.__TITLE__)
         self.resize(self.default_width, self.default_height)
 
-        self.setAllowedAreas(QtCore.Qt.LeftDockWidgetArea|QtCore.Qt.RightDockWidgetArea)
-        self.setFeatures(QtWidgets.QDockWidget.DockWidgetFloatable|QtWidgets.QDockWidget.DockWidgetMovable|QtWidgets.QDockWidget.DockWidgetClosable)
+        self.setAllowedAreas(QtCore.Qt.LeftDockWidgetArea |
+                             QtCore.Qt.RightDockWidgetArea)
+        self.setFeatures(QtWidgets.QDockWidget.DockWidgetFloatable |
+                         QtWidgets.QDockWidget.DockWidgetMovable |
+                         QtWidgets.QDockWidget.DockWidgetClosable)
 
         # Add to maya window for proper behavior
         maya_window = qt_handlers.get_maya_window()
@@ -4005,13 +4061,14 @@ class MainDockWindow(QtWidgets.QDockWidget):
         # Add main widget to window
         self.setWidget(self.main_widget)
 
-        # Creating is done (workaround for signals being fired off before everything is created)
+        # Creating is done (workaround for signals being fired
+        # off before everything is created)
         self.ready = True
 
-#        # Add docking event signal
-#        self.connect(self,
-#                     QtCore.SIGNAL('topLevelChanged(bool)'),
-#                     self.dock_event)
+        # Add docking event signal
+        # self.connect(self,
+        #              QtCore.SIGNAL('topLevelChanged(bool)'),
+        #              self.dock_event)
 
     def reset_default_size(self):
         '''Reset window size to default
@@ -4027,7 +4084,7 @@ class MainDockWindow(QtWidgets.QDockWidget):
 
         # Create group box
         box = QtWidgets.QGroupBox()
-        box.setTitle('Character Selector')
+        box.setTitle("Character Selector")
         box.setFixedHeight(80)
 
         layout.addWidget(box)
@@ -4036,36 +4093,40 @@ class MainDockWindow(QtWidgets.QDockWidget):
         box_layout = QtWidgets.QVBoxLayout(box)
 
         # Add combo box
-        self.char_selector_cb = CallbackComboBox(callback=self.selector_change_event)
+        self.char_selector_cb = CallbackComboBox(
+            callback=self.selector_change_event)
         box_layout.addWidget(self.char_selector_cb)
 
         # Init combo box data
-        self.char_selector_cb.nodes = list()
+        self.char_selector_cb.nodes = []
 
         # Add option buttons
         btns_layout = QtWidgets.QHBoxLayout()
         box_layout.addLayout(btns_layout)
 
         # Add horizont spacer
-        spacer = QtWidgets.QSpacerItem(10,0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacer = QtWidgets.QSpacerItem(10,
+                                       0,
+                                       QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         btns_layout.addItem(spacer)
 
         # About btn
         about_btn = CallbackButton(callback=self.show_about_infos)
-        about_btn.setText('?')
-        about_btn.setToolTip('Show help/about informations')
+        about_btn.setText("?")
+        about_btn.setToolTip("Show help/about informations")
         btns_layout.addWidget(about_btn)
 
         # Load from node
         if not __EDIT_MODE__.get():
-            self.char_from_node_btn = CallbackButton(callback=self.load_from_sel_node)
-            self.char_from_node_btn.setText('Load from selection')
+            self.char_from_node_btn = CallbackButton(
+                callback=self.load_from_sel_node)
+            self.char_from_node_btn.setText("Load from selection")
             btns_layout.addWidget(self.char_from_node_btn)
 
         # Refresh button
         self.char_refresh_btn = CallbackButton(callback=self.refresh)
-        self.char_refresh_btn.setText('Refresh')
-#        self.char_refresh_btn.setFixedWidth(60)
+        self.char_refresh_btn.setText("Refresh")
+        # self.char_refresh_btn.setFixedWidth(60)
         btns_layout.addWidget(self.char_refresh_btn)
 
         # Edit buttons
@@ -4074,14 +4135,14 @@ class MainDockWindow(QtWidgets.QDockWidget):
         if __EDIT_MODE__.get():
             # Add New  button
             self.new_char_btn = CallbackButton(callback=self.new_character)
-            self.new_char_btn.setText('New')
+            self.new_char_btn.setText("New")
             self.new_char_btn.setFixedWidth(40)
 
             btns_layout.addWidget(self.new_char_btn)
 
             # Add Save  button
             self.save_char_btn = CallbackButton(callback=self.save_character)
-            self.save_char_btn.setText('Save')
+            self.save_char_btn.setText("Save")
             self.save_char_btn.setFixedWidth(40)
 
             btns_layout.addWidget(self.save_char_btn)
@@ -4090,7 +4151,7 @@ class MainDockWindow(QtWidgets.QDockWidget):
         self.pic_widget = SnapshotWidget()
         layout.addWidget(self.pic_widget)
 
-    def add_tab_widget(self, name = 'default'):
+    def add_tab_widget(self, name="default"):
         '''Add control display field
         '''
         self.tab_widget = ContextMenuTabWidget(self, main_window=self)
@@ -4126,7 +4187,8 @@ class MainDockWindow(QtWidgets.QDockWidget):
         for child in self.childs:
             try:
                 child.close()
-            except:pass
+            except Exception:
+                pass
 
         # Close ctrls options windows
         for item in self.get_all_picker_items():
@@ -4134,12 +4196,13 @@ class MainDockWindow(QtWidgets.QDockWidget):
                 if not item.edit_window:
                     continue
                 item.edit_window.close()
-            except:pass
+            except Exception:
+                pass
 
         # Default close
         QtWidgets.QDockWidget.closeEvent(self, *args, **kwargs)
 
-    def showEvent(self,  *args, **kwargs):
+    def showEvent(self, *args, **kwargs):
         '''Default showEvent overload
         '''
         # Prevent firing this event before the window is set up
@@ -4178,7 +4241,7 @@ class MainDockWindow(QtWidgets.QDockWidget):
         '''
         self.about_widget.show()
 
-    #===========================================================================
+    # =========================================================================
     # Character selector handlers ---
     def selector_change_event(self, index):
         '''Will load data node relative to selector index
@@ -4189,7 +4252,7 @@ class MainDockWindow(QtWidgets.QDockWidget):
         '''Will populate char selector combo box
         '''
         # Get char nodes
-        nodes = node.get_nodes()
+        nodes = picker_node.get_nodes()
         self.char_selector_cb.nodes = nodes
 
         # Empty combo box
@@ -4225,7 +4288,7 @@ class MainDockWindow(QtWidgets.QDockWidget):
         '''Will reset and load default empty tabs
         '''
         self.tab_widget.clear()
-        self.tab_widget.addTab(GraphicViewWidget(main_window=self), 'None')
+        self.tab_widget.addTab(GraphicViewWidget(main_window=self), "None")
 
     def refresh(self):
         '''Refresh char selector and window
@@ -4263,7 +4326,7 @@ class MainDockWindow(QtWidgets.QDockWidget):
         sel = cmds.ls(sl=True)
         if not sel:
             return
-        data_node = node.get_node_for_object(sel[0])
+        data_node = picker_node.get_node_for_object(sel[0])
         self.make_node_active(data_node.name)
 
     def make_node_active(self, data_node):
@@ -4285,10 +4348,10 @@ class MainDockWindow(QtWidgets.QDockWidget):
         '''
         # Open input window
         name, ok = QtWidgets.QInputDialog.getText(self,
-                                              self.tr("New character"),
-                                              self.tr('Node name'),
-                                              QtWidgets.QLineEdit.Normal,
-                                              self.tr('PICKER_DATA') )
+                                                  self.tr("New character"),
+                                                  self.tr('Node name'),
+                                                  QtWidgets.QLineEdit.Normal,
+                                                  self.tr('PICKER_DATA'))
         if not (ok and name):
             return
 
@@ -4297,17 +4360,18 @@ class MainDockWindow(QtWidgets.QDockWidget):
             return
 
         # Create new data node
-        data_node = node.DataNode(name=unicode(name))
+        data_node = picker_node.DataNode(name=unicode(name))
         data_node.create()
         self.refresh()
         self.make_node_active(data_node)
 
-    #===========================================================================
+    # =========================================================================
     # Data ---
     def check_for_data_change(self):
         '''
         Check if data changed
-        If changes are detected will ask user if he wants to proceed any way and loose thoses changes
+        If changes are detected will ask user if he wants to proceed any
+        way and loose thoses changes
         Return user answer
         '''
         # Get current data node
@@ -4320,10 +4384,11 @@ class MainDockWindow(QtWidgets.QDockWidget):
             return True
 
         # Open question window
+        msg = "Any changes will be lost, proceed any way ?"
         answer = QtWidgets.QMessageBox.question(self,
-                                            'Changes detected',
-                                            'Any changes will be lost, proceed any way ?',
-                                     buttons = QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Yes)
+                                                "Changes detected",
+                                                msg,
+                                                buttons=QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Yes)
         return answer == QtWidgets.QMessageBox.Yes
 
     def get_current_namespace(self):
@@ -4350,16 +4415,17 @@ class MainDockWindow(QtWidgets.QDockWidget):
         picker_data = data_node.get_data()
 
         # Load snapshot
-        path = picker_data.get('snapshot', None)
+        path = picker_data.get("snapshot", None)
         self.pic_widget.set_background(path)
 
         # load tabs
-        tabs_data = picker_data.get('tabs', dict())
+        tabs_data = picker_data.get("tabs", {})
         self.tab_widget.set_data(tabs_data)
 
         # Default tab
         if not self.tab_widget.count():
-            self.tab_widget.addTab(GraphicViewWidget(main_window=self), 'default')
+            self.tab_widget.addTab(GraphicViewWidget(main_window=self),
+                                   "default")
         else:
             # Return to first tab
             self.tab_widget.setCurrentIndex(0)
@@ -4375,20 +4441,19 @@ class MainDockWindow(QtWidgets.QDockWidget):
         '''
         # Get DataNode
         data_node = self.get_current_data_node()
-        assert data_node, 'No data_node found/selected'
+        assert data_node, "No data_node found/selected"
 
         # Block save in anim mode
         if not __EDIT_MODE__.get():
             QtWidgets.QMessageBox.warning(self,
-                                      "Warning",
-                                      "Save is not permited in anim mode")
+                                          "Warning",
+                                          "Save is not permited in anim mode")
             return
 
         # Block save on referenced nodes
         if data_node.is_referenced():
-            QtWidgets.QMessageBox.warning(self,
-                                      "Warning",
-                                      "Save is not permited on referenced nodes")
+            msg = "Save is not permited on referenced nodes"
+            QtWidgets.QMessageBox.warning(self, "Warning", msg)
             return
 
         self.save_widget.show()
@@ -4396,21 +4461,21 @@ class MainDockWindow(QtWidgets.QDockWidget):
     def get_character_data(self):
         '''Return window data
         '''
-        picker_data = dict()
+        picker_data = {}
 
         # Add snapshot path data
         snapshot_data = self.pic_widget.get_data()
         if snapshot_data:
-            picker_data['snapshot'] = snapshot_data
+            picker_data["snapshot"] = snapshot_data
 
         # Add tabs data
         tabs_data = self.tab_widget.get_data()
         if tabs_data:
-            picker_data['tabs'] = tabs_data
+            picker_data["tabs"] = tabs_data
 
         return picker_data
 
-    #===========================================================================
+    # =========================================================================
     # Script jobs handling ---
     def add_script_jobs(self):
         '''Will add maya scripts job events
@@ -4420,14 +4485,22 @@ class MainDockWindow(QtWidgets.QDockWidget):
 
         # Get current UI maya_name
         ui_id = qt_handlers.unwrap_instance(self)
-        ui_name = OpenMayaUI.MQtUtil.fullName( long(ui_id) )
+        ui_name = OpenMayaUI.MQtUtil.fullName(long(ui_id))
 
         # Add selection change event
-        job_id = cmds.scriptJob(p=ui_name, cu=True, kws=False, e=['SelectionChanged', self.selection_change_event])
+        job_id = cmds.scriptJob(p=ui_name,
+                                cu=True,
+                                kws=False,
+                                e=["SelectionChanged",
+                                   self.selection_change_event])
         self.script_jobs.append(job_id)
 
         # Add scene open event
-        job_id = cmds.scriptJob(p=ui_name, kws=False, e=['SceneOpened', self.selection_change_event])
+        job_id = cmds.scriptJob(p=ui_name,
+                                kws=False,
+                                e=["SceneOpened",
+                                   self.selection_change_event])
+
         self.script_jobs.append(job_id)
 
     def kill_script_jobs(self):
@@ -4437,12 +4510,13 @@ class MainDockWindow(QtWidgets.QDockWidget):
             if not cmds.scriptJob(ex=job_id):
                 continue
             cmds.scriptJob(k=job_id, f=True)
-        self.script_jobs = list()
+        self.script_jobs = []
 
     def selection_change_event(self):
         '''
         Event called with a script job from maya on selection change.
-        Will properly parse poly_ctrls associated node, and set border visible if content is selected
+        Will properly parse poly_ctrls associated node, and set border
+        visible if content is selected
         '''
         # Abort in Edit mode
         if __EDIT_MODE__.get():
@@ -4456,25 +4530,14 @@ class MainDockWindow(QtWidgets.QDockWidget):
             item.run_selection_check()
 
 
-#===============================================================================
+# =============================================================================
 # Load user interface function
-#===============================================================================
+# =============================================================================
 def load(edit=False, multi=False):
     '''Load anim_picker ui window
     '''
     # Return existing window if not multi option
     # Force multi in edit mode to prevent locked window issues
-    """
-    if not (edit or multi):
-        dock_pt = OpenMayaUI.MQtUtil.findControl(MainDockWindow.__OBJ_NAME__)
-        if dock_pt:
-            # Get dock qt instance
-            dock_widget = qt_handlers.wrap_instance(long(dock_pt), QtCore.QObject)
-            dock_widget.show()
-            #dock_widget.raise_()
-
-            return dock_widget
-    """
 
     # Init UI
     dock_widget = MainDockWindow(parent=qt_handlers.get_maya_window(),
@@ -4488,5 +4551,5 @@ def load(edit=False, multi=False):
 
 
 # Load on exec
-if __name__ == "__main__":
-    load()
+# if __name__ == "__main__":
+#     load()

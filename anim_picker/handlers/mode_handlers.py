@@ -2,9 +2,11 @@
 # This file is part of "anim_picker" and covered by MIT,
 # read LICENSE.md and COPYING.md for details.
 
+
 class EditMode():
     '''UI edition status mode handler
     '''
+
     def __init__(self, status=False):
         self.main_status = status
         self.status = status
